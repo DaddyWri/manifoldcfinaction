@@ -110,9 +110,10 @@ public class ManifoldCFAPIConnect
     // We presume that the data is utf-8, since that's what the API
     // uses throughout.
     String responseString = new String(responseData,"utf-8");
-    if (response != HttpStatus.SC_OK && response != HttpStatus.SC_NOT_FOUND)
+    if (response != HttpStatus.SC_OK &&
+      response != HttpStatus.SC_NOT_FOUND)
       throw new IOException("API http GET error; expected "+
-        HttpStatus.SC_OK+", "+
+        HttpStatus.SC_OK+" or "+HttpStatus.SC_NOT_FOUND+", "+
         " saw "+Integer.toString(response)+": "+responseString);
     return responseString;
   }
