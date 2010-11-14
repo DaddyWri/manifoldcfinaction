@@ -51,32 +51,39 @@ public class ManifoldCFAuthorityServiceConnect
   {
     HttpClient client = new HttpClient();
     GetMethod method = new GetMethod(formURL(userName));
-    int response = client.executeMethod(method);
-    byte[] responseData = method.getResponseBody();
-    // We presume that the data is utf-8, since that's what the authority service
-    // uses throughout.
-    if (response != HttpStatus.SC_OK)
-      throw new IOException("Authority Service http GET error; expected "+
-        HttpStatus.SC_OK+", "+
-        " saw "+Integer.toString(response)+": "+new String(responseData,"utf-8"));
-    // Now, create an array of response components
-    List<ResponseComponent> rval = new ArrayList<ResponseComponent>();
-    BufferedReader br = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(responseData),"utf-8"));
     try
     {
-      while (true)
+      int response = client.executeMethod(method);
+      // We presume that the data is utf-8, since that's what the authority service
+      // uses throughout.
+      if (response != HttpStatus.SC_OK)
+        throw new IOException("Authority Service http GET error; expected "+
+          HttpStatus.SC_OK+", "+
+          " saw "+Integer.toString(response)+": "+method.getResponseBodyAsString());
+      // Now, create an array of response components
+      List<ResponseComponent> rval = new ArrayList<ResponseComponent>();
+      InputStream is = method.getResponseBodyAsStream();
+      try
       {
-        String line = br.readLine();
-        if (line == null)
-          break;
-        rval.add(new ResponseComponent(line));
+        BufferedReader br = new BufferedReader(new InputStreamReader(is,"utf-8"));
+        while (true)
+        {
+          String line = br.readLine();
+          if (line == null)
+            break;
+          rval.add(new ResponseComponent(line));
+        }
+        return rval;
+      }
+      finally
+      {
+        is.close();
       }
     }
     finally
     {
-      br.close();
+      method.releaseConnection();
     }
-    return rval;
   }
 
   /** Form a full URL given the current baseURL and the user name.
