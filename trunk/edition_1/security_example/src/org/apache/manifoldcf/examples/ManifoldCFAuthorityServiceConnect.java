@@ -94,7 +94,7 @@ public class ManifoldCFAuthorityServiceConnect
     throws IOException
   {
     // The replace is necessary because Jetty does not recognize the '+' as being equivalent to a ' '.
-    return baseURL + "/userACLs?username="+URLEncoder.encode(userName,"utf-8").replace("+","%20");
+    return baseURL + "/UserACLs?username="+URLEncoder.encode(userName,"utf-8").replace("+","%20");
   }
   
 }
