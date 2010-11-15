@@ -121,7 +121,8 @@ public class ManifoldCFSecurityFilter extends SearchComponent
     String authenticatedUserName = params.get(AUTHENTICATED_USER_NAME);
 
     if (authenticatedUserName == null)
-      throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Missing required parameter '"+AUTHENTICATED_USER_NAME+"'");
+      // We could just throw an error, but then many of the innocent queries the Solr does would fail.  So, just return instead.
+      return;
     
     LOG.info("ManifoldCFSecurityFilter: Trying to match docs for user '"+authenticatedUserName+"'");
     
