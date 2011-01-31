@@ -1,0 +1,39 @@
+<project default="all">
+
+    <target name="clean">
+        <delete dir="build"/>
+    </target>
+    
+    <target name="compile">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+            <classpath>
+                <fileset dir="lib"> 
+                    <include name="*.jar"/> 
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/core-example.jar" basedir="build/classes"/>
+    </target>
+
+    <target name="run-id-generator" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.UniqueIDGenerator" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="core-example.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+    
+    <target name="all" depends="jar"/>
+    
+</project>
