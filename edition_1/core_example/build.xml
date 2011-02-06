@@ -33,7 +33,49 @@
             <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
         </java>
     </target>
-    
+
+    <target name="run-lock-exerciser" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.LockExerciser" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="core-example.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+
+    <target name="run-cache-exerciser" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.CacheExerciser" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="core-example.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+
+    <target name="run-database-example" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.DatabaseExample" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="core-example.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+
     <target name="all" depends="jar"/>
     
 </project>
