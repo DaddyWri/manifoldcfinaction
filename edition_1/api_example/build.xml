@@ -20,6 +20,22 @@
         <jar destfile="build/jar/api-example.jar" basedir="build/classes"/>
     </target>
 
+    <target name="run-api-example" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.RSSCrawlMonitor" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="api-example.jar"/>
+                </fileset>
+            </classpath>
+            <arg value="http://localhost:8345/mcf-api-service"/>
+            <arg value="Null"/>
+            <arg file="feeds.txt"/>
+        </java>
+    </target>
+
     <target name="all" depends="jar"/>
     
 </project>
