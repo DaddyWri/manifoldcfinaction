@@ -29,7 +29,7 @@ public class D4UFactory
   /** Create an instance of the Docs4U api.
   *@param root is the root directory for the system instance.
   */
-  public Docs4UAPI makeAPI(String root)
+  public static Docs4UAPI makeAPI(String root)
     throws D4UException
   {
     return new Docs4UAPIImpl(root);
@@ -37,7 +37,7 @@ public class D4UFactory
 
   /** Create an instance of the D4UDocInfo object.
   */
-  public D4UDocInfo makeDocInfo()
+  public static D4UDocInfo makeDocInfo()
     throws D4UException
   {
     return new D4UDocInfoImpl();
