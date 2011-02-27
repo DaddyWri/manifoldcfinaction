@@ -74,7 +74,11 @@ public interface D4UDocInfo
   *@param values are the metadata values, or null if none.
   */
   public void setMetadata(String metadataName, String[] values);
-  
+
+  /** Clear all metadata.
+  */
+  public void clearMetadata();
+
   /** Close the document info object. 
   */
   public void close()
