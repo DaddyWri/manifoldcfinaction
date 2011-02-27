@@ -34,5 +34,13 @@ public class D4UFactory
   {
     return new Docs4UAPIImpl(root);
   }
-  
+
+  /** Create an instance of the D4UDocInfo object.
+  */
+  public D4UDocInfo makeDocInfo()
+    throws D4UException
+  {
+    return new D4UDocInfoImpl();
+  }
+
 }
