@@ -18,29 +18,34 @@
 */
 package org.apache.manifoldcf.examples.docs4u;
 
-/** This class instantiates an engine instance implementing Docs4UAPI.
+/** This class installs the Docs4U content management system.
 */
-public class D4UFactory
+public class Install
 {
-  protected D4UFactory()
+  private Install()
   {
   }
   
-  /** Create an instance of the Docs4U api.
-  *@param root is the root directory for the system instance.
-  */
-  public static Docs4UAPI makeAPI(String root)
-    throws D4UException
+  public static void main(String[] argv)
   {
-    return new Docs4UAPIImpl(root);
+    if (argv.length != 1)
+    {
+      System.err.println("Usage: Install <directory>");
+      System.exit(1);
+    }
+    
+    String directory = argv[0];
+    
+    try
+    {
+      Docs4UAPI api = D4UFactory.makeAPI(directory);
+      api.install();
+    }
+    catch (D4UException e)
+    {
+      e.printStackTrace(System.err);
+      System.exit(2);
+    }
   }
-
-  /** Create an instance of the D4UDocInfo object.
-  */
-  public static D4UDocInfo makeDocInfo()
-    throws D4UException
-  {
-    return new D4UDocInfoImpl();
-  }
-
+  
 }
