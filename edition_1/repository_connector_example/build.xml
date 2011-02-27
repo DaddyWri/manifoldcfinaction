@@ -1,0 +1,54 @@
+<project default="all">
+
+    <target name="clean">
+        <delete dir="build"/>
+        <delete dir="repository"/>
+    </target>
+    
+    <!-- target name="compile">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+            <classpath>
+                <fileset dir="lib"> 
+                    <include name="*.jar"/> 
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/core-example.jar" basedir="build/classes"/>
+    </target -->
+
+    <target name="build-d4u">
+        <ant dir="../docs4u" target="jar"/>
+    </target>
+    
+    <target name="install-repository" depends="build-d4u">
+        <mkdir dir="repository"/>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.Install" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="../docs4u/build/jar">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+        </java>
+    </target>
+
+    <target name="remove-repository" depends="build-d4u">
+        <mkdir dir="repository"/>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.Uninstall" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="../docs4u/build/jar">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+        </java>
+    </target>
+
+    <target name="all" depends="install-repository"/>
+    
+</project>
