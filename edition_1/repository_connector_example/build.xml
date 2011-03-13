@@ -4,12 +4,19 @@
         <delete dir="build"/>
         <delete dir="repository"/>
     </target>
+
+    <target name="build-d4u">
+        <ant dir="../docs4u" target="jar"/>
+    </target>
     
-    <!-- target name="compile">
+    <target name="compile" depends="build-d4u">
         <mkdir dir="build/classes"/>
         <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
             <classpath>
                 <fileset dir="lib"> 
+                    <include name="*.jar"/> 
+                </fileset>
+                <fileset dir="../docs4u/build/jar"> 
                     <include name="*.jar"/> 
                 </fileset>
             </classpath>
@@ -18,13 +25,9 @@
 
     <target name="jar" depends="compile">
         <mkdir dir="build/jar"/>
-        <jar destfile="build/jar/core-example.jar" basedir="build/classes"/>
-    </target -->
-
-    <target name="build-d4u">
-        <ant dir="../docs4u" target="jar"/>
+        <jar destfile="build/jar/d4u-repository-connector.jar" basedir="build/classes"/>
     </target>
-    
+
     <target name="install-repository" depends="build-d4u">
         <mkdir dir="repository"/>
         <java dir="." classname="org.apache.manifoldcf.examples.docs4u.Install" fork="true" failonerror="true" maxmemory="128m">
@@ -49,6 +52,6 @@
         </java>
     </target>
 
-    <target name="all" depends="install-repository"/>
+    <target name="all" depends="jar"/>
     
 </project>
