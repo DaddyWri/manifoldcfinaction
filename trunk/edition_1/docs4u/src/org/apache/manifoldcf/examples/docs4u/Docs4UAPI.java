@@ -79,7 +79,8 @@ public interface Docs4UAPI
     
   // Document methods
   
-  /** Find documents.
+  /** Find documents which match metadata criteria, within a specified modification
+  * time window.
   *@param startTime is the starting timestamp in ms since epoch, or null if none.
   *@param endTime is the ending timestamp in ms since epoch, or null if none.
   *@param metadataMap is a map of metadata name to desired value.
@@ -119,7 +120,14 @@ public interface Docs4UAPI
   */
   public Long getDocumentUpdatedTime(String docID)
     throws D4UException;
-    
+
+  /** Get a document's URL, as a string.
+  *@param docID is the document identifier.
+  *@return the URL to use to access the document.
+  */
+  public String getDocumentURL(String docID)
+    throws D4UException;
+
   /** Delete a document.
   *@param docID is the document identifier.
   */
