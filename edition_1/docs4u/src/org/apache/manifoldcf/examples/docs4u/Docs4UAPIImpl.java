@@ -451,6 +451,23 @@ public class Docs4UAPIImpl implements Docs4UAPI
     }
   }
   
+  /** Get a document's URL, as a string.
+  *@param docID is the document identifier.
+  *@return the URL to use to access the document.
+  */
+  public String getDocumentURL(String docID)
+    throws D4UException
+  {
+    try
+    {
+      return "file://"+new File(docsFolder,docID).getCanonicalPath();
+    }
+    catch (IOException e)
+    {
+      throw new D4UException(e.getMessage(),e);
+    }
+  }
+
   // Utility methods
 
   /** Get a new identifier.
