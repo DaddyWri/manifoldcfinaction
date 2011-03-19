@@ -16,9 +16,6 @@
                 <fileset dir="lib"> 
                     <include name="*.jar"/> 
                 </fileset>
-                <fileset dir="../docs4u/build/jar"> 
-                    <include name="*.jar"/> 
-                </fileset>
             </classpath>
         </javac>
     </target>
@@ -29,10 +26,11 @@
     </target>
 
     <target name="install-repository" depends="build-d4u">
+        <delete dir="repository"/>
         <mkdir dir="repository"/>
         <java dir="." classname="org.apache.manifoldcf.examples.docs4u.Install" fork="true" failonerror="true" maxmemory="128m">
             <classpath>
-                <fileset dir="../docs4u/build/jar">
+                <fileset dir="lib">
                     <include name="*.jar"/>
                 </fileset>
             </classpath>
@@ -44,7 +42,7 @@
         <mkdir dir="repository"/>
         <java dir="." classname="org.apache.manifoldcf.examples.docs4u.Uninstall" fork="true" failonerror="true" maxmemory="128m">
             <classpath>
-                <fileset dir="../docs4u/build/jar">
+                <fileset dir="lib">
                     <include name="*.jar"/>
                 </fileset>
             </classpath>
@@ -52,6 +50,42 @@
         </java>
     </target>
 
+    <target name="sample-repository" depends="install-repository">
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.SetMetadata" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg value="title"/>
+            <arg value="author"/>
+            <arg value="date"/>
+        </java>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddUserOrGroup" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg value="overlord"/>
+            <arg value="overlord"/>
+        </java>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddDocument" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg path="test1.txt"/>
+            <arg value="author=somebody"/>
+            <arg value="title=what I did on my summer vacation"/>
+            <arg value="date=4004BC"/>
+        </java>
+    </target>
+    
     <target name="all" depends="jar"/>
     
 </project>

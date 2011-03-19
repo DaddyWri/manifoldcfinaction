@@ -33,7 +33,11 @@ import org.apache.manifoldcf.crawler.system.ManifoldCF;
 import org.apache.manifoldcf.crawler.connectors.BaseRepositoryConnector;
 
 // Here are the imports that are specific for this connector
-import org.apache.manifoldcf.examples.docs4u.*;
+import org.apache.manifoldcf.examples.docs4u.Docs4UAPI;
+import org.apache.manifoldcf.examples.docs4u.D4UFactory;
+import org.apache.manifoldcf.examples.docs4u.D4UDocInfo;
+import org.apache.manifoldcf.examples.docs4u.D4UDocumentIterator;
+import org.apache.manifoldcf.examples.docs4u.D4UException;
 
 /** This is the Docs4U repository connector class.  This extends the base connectors class,
 * which implements IRepositoryConnector, and provides some degree of insulation from future
@@ -66,10 +70,20 @@ public class Docs4UConnector extends BaseRepositoryConnector
   /** Fetch activity */
   protected final static String ACTIVITY_FETCH = "fetch";
   
+  // Local constants
+  
+  /** Session expiration time interval */
+  protected final static long SESSION_EXPIRATION_MILLISECONDS = 300000L;
+  
   // Local variables.
   
   /** The root directory */
   protected String rootDirectory = null;
+  
+  /** The Docs4U API session */
+  protected Docs4UAPI session = null;
+  /** The expiration time of the Docs4U API session */
+  protected long sessionExpiration = -1L;
   
   /** Constructor */
   public Docs4UConnector()
@@ -119,7 +133,24 @@ public class Docs4UConnector extends BaseRepositoryConnector
     ConfigParams parameters, ArrayList tabsArray)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    tabsArray.add("Repository");
+    out.print(
+"<script type=\"text/javascript\">\n"+
+"<!--\n"+
+"function checkConfigForSave()\n"+
+"{\n"+
+"  if (editconnection.repositoryroot.value == \"\")\n"+
+"  {\n"+
+"    alert(\"Enter a repository root\");\n"+
+"    SelectTab(\"Repository\");\n"+
+"    editconnection.repositoryroot.focus();\n"+
+"    return false;\n"+
+"  }\n"+
+"  return true;\n"+
+"}\n"+
+"//-->\n"+
+"</script>\n"
+    );
   }
 
   /** Output the configuration body section.
@@ -137,7 +168,32 @@ public class Docs4UConnector extends BaseRepositoryConnector
     ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    String repositoryRoot = parameters.getParameter(PARAMETER_REPOSITORY_ROOT);
+    if (repositoryRoot == null)
+      repositoryRoot = "";
+
+    if (tabName.equals("Repository"))
+    {
+      out.print(
+"<table class=\"displaytable\">\n"+
+"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
+"    <td class=\"value\">\n"+
+"      <input type=\"text\" size=\"64\" name=\"repositoryroot\" value=\""+
+  org.apache.manifoldcf.ui.util.Encoder.attributeEscape(repositoryRoot)+"\"/>\n"+
+"    </td>\n"+
+"  </tr>\n"+
+"</table>\n"
+      );
+    }
+    else
+    {
+      out.print(
+"<input type=\"hidden\" name=\"repositoryroot\" value=\""+
+  org.apache.manifoldcf.ui.util.Encoder.attributeEscape(repositoryRoot)+"\"/>\n"
+      );
+    }
   }
 
   /** Process a configuration post.
@@ -156,7 +212,9 @@ public class Docs4UConnector extends BaseRepositoryConnector
     ConfigParams parameters)
     throws ManifoldCFException
   {
-    // MHL
+    String repositoryRoot = variableContext.getParameter("repositoryroot");
+    if (repositoryRoot != null)
+      parameters.setParameter(PARAMETER_REPOSITORY_ROOT,repositoryRoot);
     return null;
   }
 
@@ -172,7 +230,52 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    out.print(
+"<table class=\"displaytable\">\n"+
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
+"    <td class=\"value\">\n"+
+"      "+
+  org.apache.manifoldcf.ui.util.Encoder.bodyEscape(
+    parameters.getParameter(PARAMETER_REPOSITORY_ROOT))+"\n"+
+"    </td>\n"+
+"  </tr>\n"+
+"</table>\n"
+    );
+  }
+  
+  /** Get the current session, or create one if not valid.
+  */
+  protected Docs4UAPI getSession()
+    throws ManifoldCFException, ServiceInterruption
+  {
+    if (session == null)
+    {
+      // We need to establish a new session
+      try
+      {
+        session = D4UFactory.makeAPI(rootDirectory);
+      }
+      catch (D4UException e)
+      {
+        // Here we need to decide if the exception is transient or permanent.
+        // Permanent exceptions should throw ManifoldCFException.  Transient
+        // ones should throw an appropriate ServiceInterruption, based on the
+        // actual error.
+        throw new ManifoldCFException("Session setup error: "+e.getMessage(),e);
+      }
+    }
+    // Reset the expiration time
+    sessionExpiration = System.currentTimeMillis() + SESSION_EXPIRATION_MILLISECONDS;
+    return session;
+  }
+  
+  /** Expire any current session.
+  */
+  protected void expireSession()
+  {
+    session = null;
+    sessionExpiration = -1L;
   }
   
   /** Connect.
@@ -192,17 +295,51 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public void disconnect()
     throws ManifoldCFException
   {
+    expireSession();
     rootDirectory = null;
     super.disconnect();
   }
-  
+
+  /** Test the connection.  Returns a string describing the connection integrity.
+  *@return the connection's status as a displayable string.
+  */
+  public String check()
+    throws ManifoldCFException
+  {
+    try
+    {
+      // Get or establish the session
+      Docs4UAPI currentSession = getSession();
+      // Check session integrity
+      try
+      {
+        currentSession.sanityCheck();
+      }
+      catch (D4UException e)
+      {
+        return "Error: "+e.getMessage();
+      }
+      // If it passed, return "everything ok" message
+      return super.check();
+    }
+    catch (ServiceInterruption e)
+    {
+      // Convert service interruption into a transient error for display
+      return "Transient error: "+e.getMessage();
+    }
+  }
+
   /** This method is periodically called for all connectors that are connected but not
   * in active use.
   */
   public void poll()
     throws ManifoldCFException
   {
-    // MHL
+    if (session != null)
+    {
+      if (System.currentTimeMillis() >= sessionExpiration)
+        expireSession();
+    }
   }
 
   /** Get the bin name strings for a document identifier.  The bin name describes the queue to which the
