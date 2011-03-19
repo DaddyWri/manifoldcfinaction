@@ -37,6 +37,27 @@ public interface Docs4UAPI
   public void uninstall()
     throws D4UException;
   
+  // System integrity check
+  
+  /** Check repository out.  Throws an exception if there's a problem.
+  */
+  public void sanityCheck()
+    throws D4UException;
+  
+  // Manage metadata definitions
+  
+  /** Get the current metadata names.
+  *@return the global list of legal names of metadata.
+  */
+  public String[] getMetadataNames()
+    throws D4UException;
+  
+  /** Set the current metadata names.
+  *@param names is the global set of legal names of metadata.
+  */
+  public void setMetadataNames(String[] names)
+    throws D4UException;
+    
   // User/group methods
   
   /** Create a user or group.
