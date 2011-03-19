@@ -744,6 +744,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
         }
         return false;
       }
+      i++;
     }
     return true;
   }
