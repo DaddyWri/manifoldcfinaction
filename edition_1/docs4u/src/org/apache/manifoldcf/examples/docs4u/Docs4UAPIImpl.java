@@ -34,7 +34,9 @@ public class Docs4UAPIImpl implements Docs4UAPI
   protected final static String userGroupsArea = "usergroups";
   
   protected final static String idFileName = "idfile.txt";
+  protected final static String metadataFileName = "metadata.txt";
   protected final static String idLockFileName = "idfile.lock";
+  protected final static String metadataLockFileName = "metadata.lock";
   protected final static String docsLockFileName = "docs.lock";
   protected final static String usersLockFileName = "users.lock";
   
@@ -58,9 +60,13 @@ public class Docs4UAPIImpl implements Docs4UAPI
   
   /** ID generation file */
   protected File idFile;
+  /** Metadata definition file */
+  protected File metadataFile;
   
   /** ID lock file */
   protected File idLockFile;
+  /** Metadata lock file */
+  protected File metadataLockFile;
   /** Docs lock file */
   protected File docsLockFile;
   /** Users lock file */
@@ -85,8 +91,10 @@ public class Docs4UAPIImpl implements Docs4UAPI
     this.userGroupsFolder = new File(this.root,userGroupsArea);
     
     this.idFile = new File(this.root,idFileName);
+    this.metadataFile = new File(this.root,metadataFileName);
     
     this.idLockFile = new File(this.root,idLockFileName);
+    this.metadataLockFile = new File(this.root,metadataLockFileName);
     this.docsLockFile = new File(this.root,docsLockFileName);
     this.usersLockFile = new File(this.root,usersLockFileName);
     
@@ -115,7 +123,8 @@ public class Docs4UAPIImpl implements Docs4UAPI
     
     if (writeValue(idFile,"0") == false)
       throw new D4UException("Could not create id file");
-    
+    if (writeValues(metadataFile,new String[0]) == false)
+      throw new D4UException("Could not create metadata file");
   }
   
   
@@ -124,6 +133,8 @@ public class Docs4UAPIImpl implements Docs4UAPI
   public void uninstall()
     throws D4UException
   {
+    if (metadataFile.delete() == false)
+      throw new D4UException("Could not delete metadata file");
     if (idFile.delete() == false)
       throw new D4UException("Could not delete id file");
     deleteAll(userGroupsFolder);
@@ -134,7 +145,75 @@ public class Docs4UAPIImpl implements Docs4UAPI
     deleteAll(docsFolder);
   }
 
+  // System integrity check
   
+  /** Check repository out.  Throws an exception if there's a problem.
+  */
+  public void sanityCheck()
+    throws D4UException
+  {
+    if (!root.exists() || !root.isDirectory())
+      throw new D4UException("No such repository");
+    if (!metadataFile.exists() || !metadataFile.isFile())
+      throw new D4UException("Repository has no metadata file");
+    if (!idFile.exists() || !idFile.isFile())
+      throw new D4UException("Repository has no id file");
+    if (!userGroupsFolder.exists() || !userGroupsFolder.isDirectory())
+      throw new D4UException("Repository has no usergroups area");
+    if (!usersFolder.exists() || !usersFolder.isDirectory())
+      throw new D4UException("Repository has no users area");
+    if (!docAllowedPermissionsFolder.exists() || !docAllowedPermissionsFolder.isDirectory())
+      throw new D4UException("Repository has no doc allowed permissions area");
+    if (!docDisallowedPermissionsFolder.exists() || !docDisallowedPermissionsFolder.isDirectory())
+      throw new D4UException("Repository has no doc disallowed permissions area");
+    if (!docMetadataFolder.exists() || !docMetadataFolder.isDirectory())
+      throw new D4UException("Repository has no doc metadata area");
+    if (!docsFolder.exists() || !docsFolder.isDirectory())
+      throw new D4UException("Repository has no docs area");
+  }
+  
+  // Manage metadata definitions
+  
+  /** Get the current metadata names.
+  *@return the global list of legal names of metadata.
+  */
+  public String[] getMetadataNames()
+    throws D4UException
+  {
+    File[] metadataLocks = new File[]{metadataLockFile};
+    makeLocks(metadataLocks);
+    try
+    {
+      String[] rval = readValues(metadataFile);
+      if (rval == null)
+        throw new D4UException("No metadata file found");
+      return rval;
+    }
+    finally
+    {
+      clearLocks(metadataLocks);
+    }
+  }
+  
+  /** Set the current metadata names.
+  *@param names is the global set of legal names of metadata.
+  */
+  public void setMetadataNames(String[] names)
+    throws D4UException
+  {
+    File[] metadataLocks = new File[]{metadataLockFile};
+    makeLocks(metadataLocks);
+    try
+    {
+      if (writeValues(metadataFile,names) == false)
+        throw new D4UException("Could not write to metadata file");
+    }
+    finally
+    {
+      clearLocks(metadataLocks);
+    }
+  }
+
   // User/group methods
   
   /** Create a user or group.
