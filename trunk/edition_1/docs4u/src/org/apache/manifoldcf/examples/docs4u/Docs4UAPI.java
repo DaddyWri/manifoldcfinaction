@@ -50,13 +50,13 @@ public interface Docs4UAPI
   *@return the global list of legal names of metadata.
   */
   public String[] getMetadataNames()
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Set the current metadata names.
   *@param names is the global set of legal names of metadata.
   */
   public void setMetadataNames(String[] names)
-    throws D4UException;
+    throws InterruptedException, D4UException;
     
   // User/group methods
   
@@ -67,7 +67,7 @@ public interface Docs4UAPI
   *@return the user/group ID.
   */
   public String createUserOrGroup(String name, String loginID, String[] groups)
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Update a user or group.
   *@param userGroupID is the user or group ID.
@@ -76,27 +76,27 @@ public interface Docs4UAPI
   *@param groups are the group IDs.
   */
   public void updateUserOrGroup(String userGroupID, String name, String loginID, String[] groups)
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Get a user or group's name.
   *@param userGroupID is the user or group ID.
   *@return the name, or null if the ID did not exist.
   */
   public String getUserOrGroupName(String userGroupID)
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Get a user or group's groups.
   *@param userGroupID is the user or group ID.
   *@return the group id's, or null if the user or group does not exist.
   */
   public String[] getUserOrGroupGroups(String userGroupID)
-    throws D4UException;
+    throws InterruptedException, D4UException;
     
   /** Delete a user or group.
   *@param userGroupID is the user or group ID.
   */
   public void deleteUserOrGroup(String userGroupID)
-    throws D4UException;
+    throws InterruptedException, D4UException;
     
   // Document methods
   
@@ -108,7 +108,7 @@ public interface Docs4UAPI
   *@return the iterator of document identifiers matching all the criteria.
   */
   public D4UDocumentIterator findDocuments(Long startTime, Long endTime, Map metadataMap)
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Create a document.
   *@param docInfo is the document info structure.  Note that it is the responsibility
@@ -116,14 +116,14 @@ public interface Docs4UAPI
   *@return the new document identifier.
   */
   public String createDocument(D4UDocInfo docInfo)
-    throws D4UException;
+    throws InterruptedException, D4UException;
     
   /** Update a document.
   *@param docID is the document identifier.
   *@param docInfo is the updated document information.
   */
   public void updateDocument(String docID, D4UDocInfo docInfo)
-    throws D4UException;
+    throws InterruptedException, D4UException;
     
   /** Find a document.
   *@param docID is the document identifier.
@@ -133,14 +133,20 @@ public interface Docs4UAPI
   *@return true if document exists, false otherwise.
   */
   public boolean getDocument(String docID, D4UDocInfo docInfo)
-    throws D4UException;
+    throws InterruptedException, D4UException;
   
   /** Get a document's last updated timestamp.
   *@param docID is the document identifier.
   *@return the timestamp, in ms since epoch, or null if the document doesn't exist.
   */
   public Long getDocumentUpdatedTime(String docID)
-    throws D4UException;
+    throws InterruptedException, D4UException;
+
+  /** Delete a document.
+  *@param docID is the document identifier.
+  */
+  public void deleteDocument(String docID)
+    throws InterruptedException, D4UException;
 
   /** Get a document's URL, as a string.
   *@param docID is the document identifier.
@@ -149,10 +155,4 @@ public interface Docs4UAPI
   public String getDocumentURL(String docID)
     throws D4UException;
 
-  /** Delete a document.
-  *@param docID is the document identifier.
-  */
-  public void deleteDocument(String docID)
-    throws D4UException;
-    
 }

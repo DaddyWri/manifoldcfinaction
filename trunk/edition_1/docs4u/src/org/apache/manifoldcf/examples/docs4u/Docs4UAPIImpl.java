@@ -178,7 +178,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the global list of legal names of metadata.
   */
   public String[] getMetadataNames()
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] metadataLocks = new File[]{metadataLockFile};
     makeLocks(metadataLocks);
@@ -199,7 +199,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@param names is the global set of legal names of metadata.
   */
   public void setMetadataNames(String[] names)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] metadataLocks = new File[]{metadataLockFile};
     makeLocks(metadataLocks);
@@ -223,7 +223,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the user/group ID.
   */
   public String createUserOrGroup(String name, String loginID, String[] groups)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     // Get an ID for the new user/group
     String id = getNewID();
@@ -241,7 +241,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@param groups are the group IDs.
   */
   public void updateUserOrGroup(String userGroupID, String name, String loginID, String[] groups)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     // Each user or group is represented by a pair of files.  The first contains name and optional login ID.
     // The second contains the groups array.
@@ -266,7 +266,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the name, or null if the ID did not exist.
   */
   public String getUserOrGroupName(String userGroupID)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] usersLocks = new File[]{usersLockFile};
     makeLocks(usersLocks);
@@ -288,7 +288,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the group id's, or null if the user or group does not exist.
   */
   public String[] getUserOrGroupGroups(String userGroupID)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] usersLocks = new File[]{usersLockFile};
     makeLocks(usersLocks);
@@ -306,7 +306,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@param userGroupID is the user or group ID.
   */
   public void deleteUserOrGroup(String userGroupID)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] usersLocks = new File[]{usersLockFile};
     makeLocks(usersLocks);
@@ -330,7 +330,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the iterator of document identifiers matching all the criteria.
   */
   public D4UDocumentIterator findDocuments(Long startTime, Long endTime, Map metadataMap)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] files = docMetadataFolder.listFiles();
     List includedFiles = new ArrayList();
@@ -388,7 +388,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the new document identifier.
   */
   public String createDocument(D4UDocInfo docInfo)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     // Get an ID for the new document
     String id = getNewID();
@@ -403,7 +403,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@param docInfo is the updated document information.
   */
   public void updateDocument(String docID, D4UDocInfo docInfo)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     // Each document consists of four files.  The first contains metadata.  The second contains the
     // document content.  The third contains the allowed users/groups array.  The fourth contains
@@ -451,7 +451,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return true if document exists, false otherwise.
   */
   public boolean getDocument(String docID, D4UDocInfo docInfo)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] docsLocks = new File[]{docsLockFile};
     makeLocks(docsLocks);
@@ -501,7 +501,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@return the timestamp, in ms since epoch, or null if the document doesn't exist.
   */
   public Long getDocumentUpdatedTime(String docID)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     long time = new File(docsFolder,docID).lastModified();
     if (time == 0L)
@@ -513,7 +513,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   *@param docID is the document identifier.
   */
   public void deleteDocument(String docID)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] docsLocks = new File[]{docsLockFile};
     makeLocks(docsLocks);
@@ -552,7 +552,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   /** Get a new identifier.
   */
   protected String getNewID()
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     File[] idLocks = new File[]{idLockFile};
     makeLocks(idLocks);
@@ -712,7 +712,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
   /** Create locks.
   */
   protected static void makeLocks(File[] lockDirs)
-    throws D4UException
+    throws InterruptedException, D4UException
   {
     while (true)
     {
@@ -766,15 +766,10 @@ public class Docs4UAPIImpl implements Docs4UAPI
   /** Wait for a random amount of time.
   */
   protected static void waitRandom()
+    throws InterruptedException
   {
     long amt = (long)randomGenerator.nextInt(60000);
-    try
-    {
-      Thread.sleep(amt);
-    }
-    catch (InterruptedException e)
-    {
-    }
+    Thread.sleep(amt);
   }
   
 
