@@ -594,6 +594,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
           long dataSize = 0L;
           String status = "OK";
           String description = null;
+          boolean fetchOccurred = false;
           
           try
           {
@@ -607,6 +608,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
             else
             {
               // Found: index it
+              fetchOccurred = true;
               RepositoryDocument rd = new RepositoryDocument();
               InputStream is = docData.readData();
               if (is != null)
@@ -658,7 +660,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
           {
             docData.close();
             // Record the status
-            activities.recordActivity(new Long(startTime),ACTIVITY_FETCH,dataSize,docID,status,description,null);
+            if (fetchOccurred)
+              activities.recordActivity(new Long(startTime),ACTIVITY_FETCH,dataSize,docID,status,description,null);
           }
         }
         i++;
