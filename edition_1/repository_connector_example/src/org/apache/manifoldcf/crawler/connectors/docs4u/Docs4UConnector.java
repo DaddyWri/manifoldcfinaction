@@ -20,8 +20,15 @@ package org.apache.manifoldcf.crawler.connectors.docs4u;
 import org.apache.manifoldcf.core.interfaces.*;
 import org.apache.manifoldcf.agents.interfaces.*;
 import org.apache.manifoldcf.crawler.interfaces.*;
+
+// Utility includes
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 // This is where we get pull-agent system loggers
 import org.apache.manifoldcf.crawler.system.Logging;
@@ -31,6 +38,9 @@ import org.apache.manifoldcf.crawler.system.ManifoldCF;
 
 // This is the base repository class.
 import org.apache.manifoldcf.crawler.connectors.BaseRepositoryConnector;
+
+// Here's the UI helper classes.
+import org.apache.manifoldcf.ui.util.Encoder;
 
 // Here are the imports that are specific for this connector
 import org.apache.manifoldcf.examples.docs4u.Docs4UAPI;
@@ -181,7 +191,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
 "    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
 "    <td class=\"value\">\n"+
 "      <input type=\"text\" size=\"64\" name=\"repositoryroot\" value=\""+
-  org.apache.manifoldcf.ui.util.Encoder.attributeEscape(repositoryRoot)+"\"/>\n"+
+  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"+
 "    </td>\n"+
 "  </tr>\n"+
 "</table>\n"
@@ -191,7 +201,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
     {
       out.print(
 "<input type=\"hidden\" name=\"repositoryroot\" value=\""+
-  org.apache.manifoldcf.ui.util.Encoder.attributeEscape(repositoryRoot)+"\"/>\n"
+  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"
       );
     }
   }
@@ -235,9 +245,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
 "  <tr>\n"+
 "    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
 "    <td class=\"value\">\n"+
-"      "+
-  org.apache.manifoldcf.ui.util.Encoder.bodyEscape(
-    parameters.getParameter(PARAMETER_REPOSITORY_ROOT))+"\n"+
+"      "+Encoder.bodyEscape(
+  parameters.getParameter(PARAMETER_REPOSITORY_ROOT))+"\n"+
 "    </td>\n"+
 "  </tr>\n"+
 "</table>\n"
@@ -369,8 +378,39 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public boolean requestInfo(Configuration output, String command)
     throws ManifoldCFException
   {
-    // MHL
-    return false;
+    // Look for the commands we know about
+    if (command.equals("metadata"))
+    {
+      // Use a try/catch to capture errors from repository communication
+      try
+      {
+        // Get the metadata names
+        String[] metadataNames = getMetadataNames();
+        // Code these up in the output, in a form that yields decent JSON
+        int i = 0;
+        while (i < metadataNames.length)
+        {
+          String metadataName = metadataNames[i++];
+          // Construct an appropriate node
+          ConfigurationNode node = new ConfigurationNode("metadata");
+          ConfigurationNode child = new ConfigurationNode("name");
+          child.setValue(metadataName);
+          node.addChild(node.getChildCount(),child);
+          output.addChild(output.getChildCount(),node);
+        }
+      }
+      catch (ServiceInterruption e)
+      {
+        ManifoldCF.createServiceInterruptionNode(output,e);
+      }
+      catch (ManifoldCFException e)
+      {
+        ManifoldCF.createErrorNode(output,e);
+      }
+    }
+    else
+      return super.requestInfo(output,command);
+    return true;
   }
 
   /** Queue "seed" documents.  Seed documents are the starting places for crawling activity.  Documents
@@ -404,7 +444,41 @@ public class Docs4UConnector extends BaseRepositoryConnector
     long startTime, long endTime, int jobMode)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
+    // Get a session handle
+    Docs4UAPI currentSession = getSession();
+    // Scan document specification for findparameter nodes
+    int i = 0;
+    while (i < spec.getChildCount())
+    {
+      SpecificationNode sn = spec.getChild(i++);
+      if (sn.getType().equals(NODE_FIND_PARAMETER))
+      {
+        // Found a findparameter node.  Execute a Docs4U query based on it.
+        String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
+        String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
+        Map findMap = new HashMap();
+        findMap.put(findParameterName,findParameterValue);
+        try
+        {
+          D4UDocumentIterator iter = currentSession.findDocuments(new Long(startTime),
+            new Long(endTime),findMap);
+          while (iter.hasNext())
+          {
+            String docID = iter.getNext();
+            // Add this to the job queue
+            activities.addSeedDocument(docID);
+          }
+        }
+        catch (InterruptedException e)
+        {
+          throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+        }
+        catch (D4UException e)
+        {
+          throw new ManifoldCFException(e.getMessage(),e);
+        }
+      }
+    }
   }
 
   /** Get document versions given an array of document identifiers.
@@ -429,8 +503,55 @@ public class Docs4UConnector extends BaseRepositoryConnector
     DocumentSpecification spec, int jobMode, boolean usesDefaultAuthority)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
-    return null;
+    // First, the metadata specified will affect the indexing of the document.
+    // So, we need to put the metadata specification as it currently exists into the version string.
+    List metadataNames = new ArrayList();
+    int i = 0;
+    while (i < spec.getChildCount())
+    {
+      SpecificationNode sn = spec.getChild(i++);
+      if (sn.getType().equals(NODE_INCLUDED_METADATA))
+        metadataNames.add(sn.getAttributeValue(ATTRIBUTE_NAME));
+    }
+    // Sort the list of metadata names, since it will be used for a version string
+    String[] namesToVersion = (String[])metadataNames.toArray(new String[0]);
+    java.util.Arrays.sort(namesToVersion);
+    
+    // Get the current docs4u session
+    Docs4UAPI currentSession = getSession();
+    // Prepare a place for the return values
+    String[] rval = new String[documentIdentifiers.length];
+    // Capture Docs4U exceptions
+    try
+    {
+      i = 0;
+      while (i < documentIdentifiers.length)
+      {
+        Long time = currentSession.getDocumentUpdatedTime(documentIdentifiers[i]);
+        // A null return means the document doesn't exist
+        if (time == null)
+          rval[i] = null;
+        else
+        {
+          StringBuffer versionBuffer = new StringBuffer();
+          // Pack the metadata names.
+          packList(versionBuffer,namesToVersion,'+');
+          // Add the updated time.
+          versionBuffer.append(time.toString());
+          rval[i] = versionBuffer.toString();
+        }
+        i++;
+      }
+      return rval;
+    }
+    catch (InterruptedException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e);
+    }
   }
 
   /** Process a set of documents.
@@ -452,7 +573,84 @@ public class Docs4UConnector extends BaseRepositoryConnector
     DocumentSpecification spec, boolean[] scanOnly, int jobMode)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
+    // Get the current session
+    Docs4UAPI currentSession = getSession();
+    // Capture exceptions from Docs4U
+    try
+    {
+      int i = 0;
+      while (i < documentIdentifiers.length)
+      {
+        // ScanOnly indicates that we should only extract, never index.
+        if (!scanOnly[i])
+        {
+          String docID = documentIdentifiers[i];
+          String version = versions[i];
+          // Fetch and index the document.  First, we fetch, but we keep track of time.
+          long startTime = System.currentTimeMillis();
+          D4UDocInfo docData = D4UFactory.makeDocInfo();
+          try
+          {
+            // Get the document's URL first, so we don't have a potential race condition.
+            String url = currentSession.getDocumentURL(docID);
+            if (url == null || currentSession.getDocument(docID,docData) == false)
+            {
+              // Not found: delete it
+              activities.deleteDocument(docID);
+            }
+            else
+            {
+              // Found: index it
+              RepositoryDocument rd = new RepositoryDocument();
+              InputStream is = docData.readData();
+              if (is != null)
+              {
+                try
+                {
+                  // Set the contents
+                  rd.setBinary(is,docData.readDataLength().longValue());
+                  // Unpack metadata info
+                  ArrayList metadataNames = new ArrayList();
+                  unpackList(metadataNames,version,0,'+');
+                  // MHL
+                  // Handle the security information
+                  // MHL
+                  // Index the document!
+                  activities.ingestDocument(docID,version,url,rd);
+                }
+                finally
+                {
+                  is.close();
+                }
+              }
+              // Record the successful fetch.
+              // MHL
+            }
+          }
+          finally
+          {
+            docData.close();
+          }
+        }
+        i++;
+      }
+    }
+    catch (InterruptedIOException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (IOException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e);
+    }
+    catch (InterruptedException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e);
+    }
   }
 
   /** Free a set of documents.  This method is called for all documents whose versions have been fetched using
@@ -503,7 +701,113 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public void outputSpecificationHeader(IHTTPOutput out, DocumentSpecification ds, ArrayList tabsArray)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    // Add the tabs
+    tabsArray.add("Documents");
+    tabsArray.add("Metadata");
+
+    // Start the javascript
+    out.print(
+"<script type=\"text/javascript\">\n"+
+"<!--\n"
+    );
+    
+    // Output the overall check function
+    out.print(
+"function checkSpecification()\n"+
+"{\n"+
+"  if (checkDocumentsTab() == false)\n"+
+"    return false;\n"+
+"  if (checkMetadataTab() == false)\n"+
+"    return false;\n"+
+"  return true;\n"+
+"}\n"+
+"\n"
+    );
+
+    // Output a useful method which sets a specified command
+    // value, and then re-posts the form using the supplied anchor
+    out.print(
+"function SpecOp(n, opValue, anchorvalue)\n"+
+"{\n"+
+"  eval(\"editjob.\"+n+\".value = \\\"\"+opValue+\"\\\"\");\n"+
+"  postFormSetAnchor(anchorvalue);\n"+
+"}\n"+
+"\n"
+    );
+
+    // Output the actual javascript for the tabs
+    outputDocumentsTabJavascript(out,ds);
+    outputMetadataTabJavascript(out,ds);
+
+    // Terminate the javascript tag
+    out.print(
+"//-->\n"+
+"</script>\n"
+    );
+    
+  }
+    
+  /** Output the javascript for the Documents tab.
+  */
+  protected void outputDocumentsTabJavascript(IHTTPOutput out, DocumentSpecification ds)
+    throws ManifoldCFException, IOException
+  {
+    // The check function for this tab, which does nothing
+    // (Called whenever the tab is navigated away from)
+    out.print(
+"function checkDocumentsTab()\n"+
+"{\n"+
+"  return true;\n"+
+"}\n"+
+"\n"
+    );
+
+    // Delete a row from the displayed table
+    out.print(
+"function FindDelete(n)\n"+
+"{\n"+
+"  SpecOp(\"findop_\"+n, \"Delete\", \"find_\"+n);\n"+
+"}\n"+
+"\n"
+    );
+    
+    // Add a row to the displayed table
+    out.print(
+"function FindAdd(n)\n"+
+"{\n"+
+"  if (editjob.findname.value == \"\")\n"+
+"  {\n"+
+"    alert(\"Please select a metadata name first.\");\n"+
+"    editjob.findname.focus();\n"+
+"    return;\n"+
+"  }\n"+
+"  if (editjob.findvalue.value == \"\")\n"+
+"  {\n"+
+"    alert(\"Metadata value cannot be blank.\");\n"+
+"    editjob.findvalue.focus();\n"+
+"    return;\n"+
+"  }\n"+
+"  SpecOp(\"findop\", \"Add\", \"find_\"+n);\n"+
+"}\n"+
+"\n"
+    );
+  }
+
+  /** Output the javascript for the Metadata tab.
+  */
+  protected void outputMetadataTabJavascript(IHTTPOutput out, DocumentSpecification ds)
+    throws ManifoldCFException, IOException
+  {
+    // The check function for this tab, which does nothing
+    // (Called whenever the tab is navigated away from)
+    out.print(
+"function checkMetadataTab()\n"+
+"{\n"+
+"  return true;\n"+
+"}\n"+
+"\n"
+    );
+
   }
   
   /** Output the specification body section.
@@ -519,7 +823,289 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public void outputSpecificationBody(IHTTPOutput out, DocumentSpecification ds, String tabName)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    // Do the "Documents" tab
+    outputDocumentsTab(out,ds,tabName);
+    // Do the "Metadata" tab
+    outputMetadataTab(out,ds,tabName);
+  }
+  
+  /** Take care of "Documents" tab.
+  */
+  protected void outputDocumentsTab(IHTTPOutput out, DocumentSpecification ds, String tabName)
+    throws ManifoldCFException, IOException
+  {
+    int i;
+    int k;
+    
+    if (tabName.equals("Documents"))
+    {
+      // Present a table of all the metadata name/values we've done so far.
+      // The table will have three columns: a column for the delete button, a column for the
+      // metadata name, and a column for the metadata value.
+      out.print(
+"<table class=\"displaytable\">\n"+
+"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Matches:</nobr></td>\n"+
+"    <td class=\"boxcell\">\n"+
+"      <table class=\"formtable\">\n"+
+"        <tr class=\"formheaderrow\">\n"+
+"          <td class=\"formcolumnheader\"></td>\n"+
+"          <td class=\"formcolumnheader\"><nobr>Metadata name</nobr></td>\n"+
+"          <td class=\"formcolumnheader\"><nobr>Value</nobr></td>\n"+
+"        </tr>\n"
+      );
+      
+      i = 0;
+      k = 0;
+      while (i < ds.getChildCount())
+      {
+        SpecificationNode sn = ds.getChild(i++);
+        // Look for FIND_PARAMETER nodes in the document specification
+        if (sn.getType().equals(NODE_FIND_PARAMETER))
+        {
+          // Pull the metadata name and value from the FIND_PARAMETER node
+          String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
+          String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
+          // We'll need a suffix for each row, used for form element names and
+          // for anchor names.
+          String findParameterSuffix = "_"+Integer.toString(k);
+          // Output the row.
+          out.print(
+"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <input type=\"hidden\" name=\"findop"+findParameterSuffix+"\" value=\"\"/>\n"+
+"            <input type=\"hidden\" name=\"findname"+findParameterSuffix+"\" value=\""+
+  Encoder.attributeEscape(findParameterName)+"\"/>\n"+
+"            <input type=\"hidden\" name=\"findvalue"+findParameterSuffix+"\" value=\""+
+  Encoder.attributeEscape(findParameterValue)+"\"/>\n"+
+"            <a name=\""+"find_"+Integer.toString(k)+"\">\n"+
+"              <input type=\"button\" value=\"Delete\" onClick='Javascript:FindDelete(\""+
+  Integer.toString(k)+"\")' alt=\"Delete match #"+Integer.toString(k)+"\"/>\n"+
+"            </a>\n"+
+"          </td>\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              "+Encoder.bodyEscape(findParameterName)+"\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              "+Encoder.bodyEscape(findParameterValue)+"\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"        </tr>\n"
+          );
+
+          // Increment the row counter
+          k++;
+        }
+      }
+      
+      if (k == 0)
+      {
+        // There are no records yet.  Print an empty record summary
+        out.print(
+"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">No documents specified</td></tr>\n"
+        );
+      }
+      
+      // Output a separator
+      out.print(
+"        <tr class=\"formrow\"><td class=\"formseparator\" colspan=\"3\"><hr/></td></tr>\n"
+      );
+      
+      // Output the Add button, in its own table row
+      
+      // We need a try/catch block because an exception can be thrown when we query the
+      // repository.
+      try
+      {
+        String[] matchNames = getMetadataNames();
+        // Success!  Now output the row content
+        out.print(
+"        <tr class=\"formrow\">\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              <a name=\"find_"+Integer.toString(k)+"\">\n"+
+"                <input type=\"button\" value=\"Add\" onClick='Javascript:FindAdd(\""+
+  Integer.toString(k+1)+"\")' alt=\"Add new match\"/>\n"+
+"                <input type=\"hidden\" name=\"findcount\" value=\""+Integer.toString(k)+"\"/>\n"+
+"                <input type=\"hidden\" name=\"findop\" value=\"\"/>\n"+
+"              </a>\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <select name=\"findname\">\n"+
+"              <option value=\"\" selected=\"true\">--Select metadata name --</option>\n"
+        );
+      
+        int q= 0;
+        while (q < matchNames.length)
+        {
+          out.print(
+"              <option value=\""+Encoder.attributeEscape(matchNames[q])+"\">"+
+  Encoder.bodyEscape(matchNames[q])+"</option>\n"
+          );
+          q++;
+        }
+        
+        out.print(
+"            </select>\n"+
+"          </td>\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              <input type=\"text\" size=\"32\" name=\"findvalue\" value=\"\"/>\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"        </tr>\n"
+        );
+      }
+      catch (ManifoldCFException e)
+      {
+        // If there was an error, display it as the entire row contents
+        out.print(
+"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Error: "+
+  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
+        );
+      }
+      catch (ServiceInterruption e)
+      {
+        out.print(
+"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Transient error: "+
+  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
+        );
+      }
+      
+      // Finish off cell and add the final match value box.
+      out.print(
+"      </table>\n"+
+"    </td>\n"+
+"  </tr>\n"+
+"</table>\n"
+      );
+    }
+    else
+    {
+      // Output the hiddens for the "Documents" tab.
+      // This is a repeat of the logic for the displayed form, except only the pertinent hiddens
+      // are output.
+      k = 0;
+      i = 0;
+      while (i < ds.getChildCount())
+      {
+        SpecificationNode sn = ds.getChild(i++);
+        // Look for FIND_PARAMETER nodes in the document specification
+        if (sn.getType().equals(NODE_FIND_PARAMETER))
+        {
+          // Pull the metadata name and value from the FIND_PARAMETER node
+          String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
+          String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
+          String findParameterSuffix = "_"+Integer.toString(k);
+          // Output the row.
+          out.print(
+"<input type=\"hidden\" name=\"findname"+findParameterSuffix+"\" value=\""+
+  Encoder.attributeEscape(findParameterName)+"\"/>\n"+
+"<input type=\"hidden\" name=\"findvalue"+findParameterSuffix+"\" value=\""+
+  Encoder.attributeEscape(findParameterValue)+"\"/>\n"
+          );
+          k++;
+        }
+      }
+      out.print(
+"<input type=\"hidden\" name=\"findcount\" value=\""+Integer.toString(k)+"\"/>\n"
+      );
+    }
+  }
+  
+  /** Take care of "Metadata" tab.
+  */
+  protected void outputMetadataTab(IHTTPOutput out, DocumentSpecification ds, String tabName)
+    throws ManifoldCFException, IOException
+  {
+    int i;
+    
+    // Do the "Metadata" tab
+    if (tabName.equals("Metadata"))
+    {
+      // The tab is selected.  Output a description and a value, the value consisting
+      // of a checkbox for every kind of metadata.
+      out.print(
+"<table class=\"displaytable\">\n"+
+"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Include:</nobr></td>\n"+
+"    <td class=\"value\">\n"
+      );
+      
+      // Get the allowed set of metadata
+      // We need a try/catch block because an exception can be thrown when we query the
+      // repository.
+      try
+      {
+        String[] matchNames = getMetadataNames();
+        // Loop through the current metadata selection and build a hash map
+        i = 0;
+        Map currentSelections = new HashMap();
+        while (i < ds.getChildCount())
+        {
+          SpecificationNode sn = ds.getChild(i++);
+          if (sn.getType().equals(NODE_INCLUDED_METADATA))
+          {
+            String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
+            currentSelections.put(metadataName,metadataName);
+          }
+        }
+        // Now, loop through the available selections, and build a checkbox for each.
+        // Checkboxes will be separated by <br/> tags.
+        i = 0;
+        while (i < matchNames.length)
+        {
+          String matchName = matchNames[i];
+          boolean isChecked = (currentSelections.get(matchName) != null);
+          out.print(
+"      <input type=\"checkbox\" name=\"metadata\" value=\""+Encoder.attributeEscape(matchName)+"\""+
+  (isChecked?" checked=\"true\"":"")+"/> "+Encoder.bodyEscape(matchName)+"<br/>\n"
+          );
+          i++;
+        }
+      }
+      catch (ManifoldCFException e)
+      {
+        // If there was an error, display just the text
+        out.print(
+"        Error: "+Encoder.bodyEscape(e.getMessage())+"\n"
+        );
+      }
+      catch (ServiceInterruption e)
+      {
+        out.print(
+"        Transient error: "+Encoder.bodyEscape(e.getMessage())+"\n"
+        );
+      }
+
+      out.print(
+"    </td>\n"+
+"  </tr>\n"+
+"</table>\n"
+      );
+    }
+    else
+    {
+      // The tab is not selected.  Output hidden form elements.
+      i = 0;
+      while (i < ds.getChildCount())
+      {
+        SpecificationNode sn = ds.getChild(i++);
+        if (sn.getType().equals(NODE_INCLUDED_METADATA))
+        {
+          String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
+          out.print(
+"<input type=\"hidden\" name=\"metadata\" value=\""+Encoder.attributeEscape(metadataName)+"\"/>\n"
+          );
+        }
+      }
+    }
   }
   
   /** Process a specification post.
@@ -535,8 +1121,122 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public String processSpecificationPost(IPostParameters variableContext, DocumentSpecification ds)
     throws ManifoldCFException
   {
-    // MHL
+    // Pick up the Documents tab data
+    String rval = processDocumentsTab(variableContext,ds);
+    if (rval != null)
+      return rval;
+    // Pick up the Metadata tab data
+    rval = processMetadataTab(variableContext,ds);
+    return rval;
+  }
+  
+  /** Process form post for Documents tab.
+  */
+  protected String processDocumentsTab(IPostParameters variableContext, DocumentSpecification ds)
+    throws ManifoldCFException
+  {
+    // Remove old find parameter document specification information
+    removeNodes(ds,NODE_FIND_PARAMETER);
+    
+    // Parse the number of records that were posted
+    String findCountString = variableContext.getParameter("findcount");
+    if (findCountString != null)
+    {
+      int findCount = Integer.parseInt(findCountString);
+              
+      // Loop throught them and add to the new document specification information
+      int i = 0;
+      while (i < findCount)
+      {
+        String suffix = "_"+Integer.toString(i++);
+        // Only add the name/value if the item was not deleted.
+        String findParameterOp = variableContext.getParameter("findop"+suffix);
+        if (findParameterOp == null || !findParameterOp.equals("Delete"))
+        {
+          String findParameterName = variableContext.getParameter("findname"+suffix);
+          String findParameterValue = variableContext.getParameter("findvalue"+suffix);
+          addFindParameterNode(ds,findParameterName,findParameterValue);
+        }
+      }
+    }
+      
+    // Now, look for a global "Add" operation
+    String operation = variableContext.getParameter("findop");
+    if (operation != null && operation.equals("Add"))
+    {
+      // Pick up the global parameter name and value
+      String findParameterName = variableContext.getParameter("findname");
+      String findParameterValue = variableContext.getParameter("findvalue");
+      addFindParameterNode(ds,findParameterName,findParameterValue);
+    }
+
     return null;
+  }
+
+
+  /** Process form post for Metadata tab.
+  */
+  protected String processMetadataTab(IPostParameters variableContext, DocumentSpecification ds)
+    throws ManifoldCFException
+  {
+    // Remove old included metadata nodes
+    removeNodes(ds,NODE_INCLUDED_METADATA);
+
+    // Get the posted metadata values
+    String[] metadataNames = variableContext.getParameterValues("metadata");
+    if (metadataNames != null)
+    {
+      // Add each metadata name as a node to the document specification
+      int i = 0;
+      while (i < metadataNames.length)
+      {
+        String metadataName = metadataNames[i++];
+        addIncludedMetadataNode(ds,metadataName);
+      }
+    }
+    
+    return null;
+  }
+
+  /** Add a FIND_PARAMETER node to a document specification.
+  */
+  protected static void addFindParameterNode(DocumentSpecification ds,
+    String findParameterName, String findParameterValue)
+  {
+    // Create a new specification node with the right characteristics
+    SpecificationNode sn = new SpecificationNode(NODE_FIND_PARAMETER);
+    sn.setAttribute(ATTRIBUTE_NAME,findParameterName);
+    sn.setAttribute(ATTRIBUTE_VALUE,findParameterValue);
+    // Add to the end
+    ds.addChild(ds.getChildCount(),sn);
+  }
+
+  /** Add an INCLUDED_METADATA node to a document specification.
+  */
+  protected static void addIncludedMetadataNode(DocumentSpecification ds,
+    String metadataName)
+  {
+    // Build the proper node
+    SpecificationNode sn = new SpecificationNode(NODE_INCLUDED_METADATA);
+    sn.setAttribute(ATTRIBUTE_NAME,metadataName);
+    // Add to the end
+    ds.addChild(ds.getChildCount(),sn);
+  }
+  
+  /** Remove all of a specified node type from a document specification.
+  */
+  protected static void removeNodes(DocumentSpecification ds,
+    String nodeTypeName)
+  {
+    int i = 0;
+    while (i < ds.getChildCount())
+    {
+      SpecificationNode sn = ds.getChild(i);
+      if (sn.getType().equals(nodeTypeName))
+        ds.removeChild(i);
+      else
+        i++;
+    }
   }
   
   /** View specification.
@@ -550,9 +1250,235 @@ public class Docs4UConnector extends BaseRepositoryConnector
   public void viewSpecification(IHTTPOutput out, DocumentSpecification ds)
     throws ManifoldCFException, IOException
   {
-    // MHL
+    out.print(
+"<table class=\"displaytable\">\n"
+    );
+    viewDocumentsTab(out,ds);
+    viewMetadataTab(out,ds);
+    out.print(
+"</table>\n"
+    );
   }
 
+  /** View the "Documents" tab contents
+  */
+  protected void viewDocumentsTab(IHTTPOutput out, DocumentSpecification ds)
+    throws ManifoldCFException, IOException
+  {
+    int i;
+    int k;
+    
+    out.print(
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Matches:</nobr></td>\n"+
+"    <td class=\"boxcell\">\n"+
+"      <table class=\"formtable\">\n"+
+"        <tr class=\"formheaderrow\">\n"+
+"          <td class=\"formcolumnheader\"><nobr>Metadata name</nobr></td>\n"+
+"          <td class=\"formcolumnheader\"><nobr>Value</nobr></td>\n"+
+"        </tr>\n"
+    );
+    
+    i = 0;
+    k = 0;
+    while (i < ds.getChildCount())
+    {
+      SpecificationNode sn = ds.getChild(i++);
+      if (sn.getType().equals(NODE_FIND_PARAMETER))
+      {
+        String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
+        String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
+        out.print(
+"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              "+Encoder.bodyEscape(findParameterName)+"\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"          <td class=\"formcolumncell\">\n"+
+"            <nobr>\n"+
+"              "+Encoder.bodyEscape(findParameterValue)+"\n"+
+"            </nobr>\n"+
+"          </td>\n"+
+"        </tr>\n"
+        );
+        k++;
+      }
+    }
+    
+    out.print(
+"      </table>\n"+
+"    </td>\n"+
+"  </tr>\n"
+    );
+  }
+  
+  /** View the "Metadata" tab contents
+  */
+  protected void viewMetadataTab(IHTTPOutput out, DocumentSpecification ds)
+    throws ManifoldCFException, IOException
+  {
+    // Output included metadata
+    out.print(
+"  <tr>\n"+
+"    <td class=\"description\"><nobr>Included:</nobr></td>\n"+
+"    <td class=\"value\">\n"
+    );
+    
+    boolean seenData = false;
+    int i = 0;
+    while (i < ds.getChildCount())
+    {
+      SpecificationNode sn = ds.getChild(i++);
+      if (sn.getType().equals(NODE_INCLUDED_METADATA))
+      {
+        String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
+        if (seenData)
+          out.print(", ");
+        out.print(Encoder.bodyEscape(metadataName));
+        seenData = true;
+      }
+    }
+    
+    out.print(
+"    </td>\n"+
+"  </tr>\n"
+    );
+    
+  }
 
+  // Protected pack/unpack methods for version strings
+  
+  /** Stuffer for packing a single string with an end delimiter */
+  protected static void pack(StringBuffer output, String value, char delimiter)
+  {
+    int i = 0;
+    while (i < value.length())
+    {
+      char x = value.charAt(i++);
+      if (x == '\\' || x == delimiter)
+        output.append('\\');
+      output.append(x);
+    }
+    output.append(delimiter);
+  }
+
+  /** Unstuffer for the above. */
+  protected static int unpack(StringBuffer sb, String value, int startPosition, char delimiter)
+  {
+    while (startPosition < value.length())
+    {
+      char x = value.charAt(startPosition++);
+      if (x == '\\')
+      {
+        if (startPosition < value.length())
+          x = value.charAt(startPosition++);
+      }
+      else if (x == delimiter)
+        break;
+      sb.append(x);
+    }
+    return startPosition;
+  }
+
+  /** Stuffer for packing lists of fixed length */
+  protected static void packFixedList(StringBuffer output, String[] values, char delimiter)
+  {
+    int i = 0;
+    while (i < values.length)
+    {
+      pack(output,values[i++],delimiter);
+    }
+  }
+
+  /** Unstuffer for unpacking lists of fixed length */
+  protected static int unpackFixedList(String[] output, String value, int startPosition, char delimiter)
+  {
+    StringBuffer sb = new StringBuffer();
+    int i = 0;
+    while (i < output.length)
+    {
+      sb.setLength(0);
+      startPosition = unpack(sb,value,startPosition,delimiter);
+      output[i++] = sb.toString();
+    }
+    return startPosition;
+  }
+
+  /** Stuffer for packing lists of variable length */
+  protected static void packList(StringBuffer output, ArrayList values, char delimiter)
+  {
+    pack(output,Integer.toString(values.size()),delimiter);
+    int i = 0;
+    while (i < values.size())
+    {
+      pack(output,values.get(i++).toString(),delimiter);
+    }
+  }
+
+  /** Another stuffer for packing lists of variable length */
+  protected static void packList(StringBuffer output, String[] values, char delimiter)
+  {
+    pack(output,Integer.toString(values.length),delimiter);
+    int i = 0;
+    while (i < values.length)
+    {
+      pack(output,values[i++],delimiter);
+    }
+  }
+
+  /** Unstuffer for unpacking lists of variable length.
+  *@param output is the array to write the unpacked result into.
+  *@param value is the value to unpack.
+  *@param startPosition is the place to start the unpack.
+  *@param delimiter is the character to use between values.
+  *@return the next position beyond the end of the list.
+  */
+  protected static int unpackList(ArrayList output, String value, int startPosition, char delimiter)
+  {
+    StringBuffer sb = new StringBuffer();
+    startPosition = unpack(sb,value,startPosition,delimiter);
+    try
+    {
+      int count = Integer.parseInt(sb.toString());
+      int i = 0;
+      while (i < count)
+      {
+        sb.setLength(0);
+        startPosition = unpack(sb,value,startPosition,delimiter);
+        output.add(sb.toString());
+        i++;
+      }
+    }
+    catch (NumberFormatException e)
+    {
+    }
+    return startPosition;
+  }
+
+  // Protected UI support methods
+  
+  /** Get an ordered list of metadata names.
+  */
+  protected String[] getMetadataNames()
+    throws ManifoldCFException, ServiceInterruption
+  {
+    Docs4UAPI currentSession = getSession();
+    try
+    {
+      String[] rval = currentSession.getMetadataNames();
+      java.util.Arrays.sort(rval);
+      return rval;
+    }
+    catch (InterruptedException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e);
+    }
+  }
+  
 }
 
