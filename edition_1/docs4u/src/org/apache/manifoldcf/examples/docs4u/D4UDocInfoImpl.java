@@ -71,6 +71,40 @@ public class D4UDocInfoImpl implements D4UDocInfo
     }
   }
   
+  /** Read a stream of the content.  It is the caller's responsibility to close
+  * the stream when finished.
+  *@return a document content stream.
+  */
+  public InputStream readData()
+    throws D4UException
+  {
+    if (contents != null)
+    {
+      try
+      {
+        return new FileInputStream(contents);
+      }
+      catch (IOException e)
+      {
+        throw new D4UException(e.getMessage(),e);
+      }
+    }
+    return null;
+  }
+
+  /** Read the content length.
+  *@return the length.
+  */
+  public Long readDataLength()
+    throws D4UException
+  {
+    if (contents != null)
+    {
+      return contents.length();
+    }
+    return null;
+  }
+
   /** Set the content from a stream.  It is the caller's responsibility to close
   * the stream when done.
   *@param dataStream is the data stream.

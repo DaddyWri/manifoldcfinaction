@@ -31,6 +31,19 @@ public interface D4UDocInfo
   public void getData(OutputStream dataStream)
     throws D4UException;
   
+  /** Read a stream of the content.  It is the caller's responsibility to close
+  * the stream when finished.
+  *@return a document content stream.
+  */
+  public InputStream readData()
+    throws D4UException;
+
+  /** Read the content length.
+  *@return the length.
+  */
+  public Long readDataLength()
+    throws D4UException;
+  
   /** Set the content from a stream.  It is the caller's responsibility to close
   * the stream when done.
   *@param dataStream is the data stream.
