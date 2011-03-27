@@ -587,8 +587,14 @@ public class Docs4UConnector extends BaseRepositoryConnector
           String docID = documentIdentifiers[i];
           String version = versions[i];
           // Fetch and index the document.  First, we fetch, but we keep track of time.
-          long startTime = System.currentTimeMillis();
           D4UDocInfo docData = D4UFactory.makeDocInfo();
+          
+          // Set up variables for recording the fetch activity status
+          long startTime = System.currentTimeMillis();
+          long dataSize = 0L;
+          String status = "OK";
+          String description = null;
+          
           try
           {
             // Get the document's URL first, so we don't have a potential race condition.
@@ -608,13 +614,31 @@ public class Docs4UConnector extends BaseRepositoryConnector
                 try
                 {
                   // Set the contents
-                  rd.setBinary(is,docData.readDataLength().longValue());
+                  dataSize = docData.readDataLength().longValue();
+                  rd.setBinary(is,dataSize);
+                  
                   // Unpack metadata info
                   ArrayList metadataNames = new ArrayList();
                   unpackList(metadataNames,version,0,'+');
-                  // MHL
+                  int j = 0;
+                  while (j < metadataNames.size())
+                  {
+                    String metadataName = (String)metadataNames.get(j++);
+                    // Get the value from the doc info object
+                    String[] metadataValues = docData.getMetadata(metadataName);
+                    if (metadataValues != null)
+                    {
+                      // Add to the repository document
+                      rd.addField(metadataName,metadataValues);
+                    }
+                  }
+                  
                   // Handle the security information
-                  // MHL
+                  String[] allowed = docData.getAllowed();
+                  String[] disallowed = docData.getDisallowed();
+                  rd.setACL(allowed);
+                  rd.setDenyACL(disallowed);
+                  
                   // Index the document!
                   activities.ingestDocument(docID,version,url,rd);
                 }
@@ -623,13 +647,18 @@ public class Docs4UConnector extends BaseRepositoryConnector
                   is.close();
                 }
               }
-              // Record the successful fetch.
-              // MHL
             }
+          }
+          catch (D4UException e)
+          {
+            status = "ERROR";
+            description = e.getMessage();
           }
           finally
           {
             docData.close();
+            // Record the status
+            activities.recordActivity(new Long(startTime),ACTIVITY_FETCH,dataSize,docID,status,description,null);
           }
         }
         i++;
