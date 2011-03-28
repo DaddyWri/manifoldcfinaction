@@ -339,9 +339,9 @@ public class Docs4UAPIImpl implements Docs4UAPI
     {
       File theFile = files[i++];
       long fileStamp = theFile.lastModified();
-      if (startTime != null && startTime.longValue() <= fileStamp)
+      if (startTime != null && startTime.longValue() > fileStamp)
         continue;
-      if (endTime != null && endTime.longValue() >= fileStamp)
+      if (endTime != null && endTime.longValue() < fileStamp)
         continue;
       if (metadataMap != null)
       {
@@ -434,7 +434,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
         
       writeValues(new File(docMetadataFolder,docID),metadataContent);
       writeValues(new File(docAllowedPermissionsFolder,docID),docInfo.getAllowed());
-      writeValues(new File(docAllowedPermissionsFolder,docID),docInfo.getDisallowed());
+      writeValues(new File(docDisallowedPermissionsFolder,docID),docInfo.getDisallowed());
     }
     finally
     {
