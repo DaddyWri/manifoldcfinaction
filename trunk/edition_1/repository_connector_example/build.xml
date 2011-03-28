@@ -61,6 +61,7 @@
             <arg value="title"/>
             <arg value="author"/>
             <arg value="date"/>
+            <arg value="category"/>
         </java>
         <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddUserOrGroup" fork="true" failonerror="true" maxmemory="128m">
             <classpath>
@@ -83,6 +84,35 @@
             <arg value="author=somebody"/>
             <arg value="title=what I did on my summer vacation"/>
             <arg value="date=4004BC"/>
+            <arg value="category=searchable"/>
+            <arg value="+0"/>
+        </java>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddDocument" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg path="test2.txt"/>
+            <arg value="author=somebody else"/>
+            <arg value="title=what I did on my winter vacation"/>
+            <arg value="date=1066AD"/>
+            <arg value="category=searchable"/>
+            <arg value="+0"/>
+        </java>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddDocument" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg path="test3.txt"/>
+            <arg value="author=nobody"/>
+            <arg value="title=what I didn't do"/>
+            <arg value="date=yesterday"/>
+            <arg value="category=searchable"/>
             <arg value="+0"/>
         </java>
     </target>
