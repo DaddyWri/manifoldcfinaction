@@ -271,6 +271,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
         // Permanent exceptions should throw ManifoldCFException.  Transient
         // ones should throw an appropriate ServiceInterruption, based on the
         // actual error.
+        Logging.connectors.warn("Docs4U: Session setup error: "+e.getMessage(),e);
         throw new ManifoldCFException("Session setup error: "+e.getMessage(),e);
       }
     }
@@ -326,6 +327,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
       }
       catch (D4UException e)
       {
+        Logging.connectors.warn("Docs4U: Error checking repository: "+e.getMessage(),e);
         return "Error: "+e.getMessage();
       }
       // If it passed, return "everything ok" message
@@ -460,6 +462,9 @@ public class Docs4UConnector extends BaseRepositoryConnector
         findMap.put(findParameterName,findParameterValue);
         try
         {
+          if (Logging.connectors.isDebugEnabled())
+            Logging.connectors.debug("Docs4U: Finding documents where "+findParameterName+
+              "= '"+findParameterValue+"'");
           D4UDocumentIterator iter = currentSession.findDocuments(new Long(startTime),
             new Long(endTime),findMap);
           while (iter.hasNext())
@@ -475,6 +480,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
         }
         catch (D4UException e)
         {
+          Logging.connectors.warn("Docs4U: Error finding documents: "+e.getMessage(),e);
           throw new ManifoldCFException(e.getMessage(),e);
         }
       }
@@ -527,6 +533,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
       i = 0;
       while (i < documentIdentifiers.length)
       {
+        if (Logging.connectors.isDebugEnabled())
+          Logging.connectors.debug("Docs4U: Getting update time for '"+documentIdentifiers[i]+"'");
         Long time = currentSession.getDocumentUpdatedTime(documentIdentifiers[i]);
         // A null return means the document doesn't exist
         if (time == null)
@@ -550,6 +558,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
     }
     catch (D4UException e)
     {
+      Logging.connectors.warn("Docs4U: Error versioning documents: "+e.getMessage(),e);
       throw new ManifoldCFException(e.getMessage(),e);
     }
   }
@@ -586,8 +595,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
         {
           String docID = documentIdentifiers[i];
           String version = versions[i];
+          
           // Fetch and index the document.  First, we fetch, but we keep track of time.
-          D4UDocInfo docData = D4UFactory.makeDocInfo();
           
           // Set up variables for recording the fetch activity status
           long startTime = System.currentTimeMillis();
@@ -596,6 +605,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
           String description = null;
           boolean fetchOccurred = false;
           
+          D4UDocInfo docData = D4UFactory.makeDocInfo();
           try
           {
             // Get the document's URL first, so we don't have a potential race condition.
@@ -655,6 +665,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
           {
             status = "ERROR";
             description = e.getMessage();
+            throw e;
           }
           finally
           {
@@ -673,6 +684,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
     }
     catch (IOException e)
     {
+      Logging.connectors.warn("Docs4U: Error transferring files: "+e.getMessage(),e);
       throw new ManifoldCFException(e.getMessage(),e);
     }
     catch (InterruptedException e)
@@ -681,6 +693,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
     }
     catch (D4UException e)
     {
+      Logging.connectors.warn("Docs4U: Error getting documents: "+e.getMessage(),e);
       throw new ManifoldCFException(e.getMessage(),e);
     }
   }
