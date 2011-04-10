@@ -18,7 +18,7 @@
 
     <target name="jar" depends="compile">
         <mkdir dir="build/jar"/>
-        <jar destfile="build/jar/d4u-repository-connector.jar" basedir="build/classes"/>
+        <jar destfile="build/jar/d4u-authority-connector.jar" basedir="build/classes"/>
     </target>
 
     <target name="install-repository">
