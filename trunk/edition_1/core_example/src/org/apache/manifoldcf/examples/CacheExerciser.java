@@ -307,7 +307,7 @@ public class CacheExerciser
   }
 
   /** This is the cache description for the object to be cached. */
-  protected static class ResourceDescription implements ICacheDescription
+  protected static class ResourceDescription extends org.apache.manifoldcf.core.cachemanager.BaseDescription
   {
     protected String objectName;
     protected StringSet objectKeys;
@@ -315,6 +315,7 @@ public class CacheExerciser
     /** Constructor. */
     public ResourceDescription(String objectName)
     {
+      super(null);
       this.objectName = objectName;
       this.objectKeys = new StringSet(objectName);
     }
@@ -339,27 +340,6 @@ public class CacheExerciser
     public String getCriticalSectionName()
     {
       return "exampleobject-"+objectName;
-    }
-
-    /** Get the object class for an object.  The object class is used to determine
-    * the group of objects treated in the same LRU manner.
-    * @return the newly created object's object class, or null if there is no
-    * such class, and LRU behavior is not desired.
-    */
-    public ICacheClass getObjectClass()
-    {
-      return null;
-    }
-
-    /** Obtain an expiration time for an object, in milliseconds since epoch.
-    * The cache manager will call this method for all objects that are being operated on,
-    * so that their expiration timestamps get properly updated to a new time.
-    * @return a time in milliseconds since epoch for the object to expire, or -1 if there is no expiration
-    * desired.
-    */
-    public long getObjectExpirationTime()
-    {
-      return -1;
     }
 
     /** Hash code */
