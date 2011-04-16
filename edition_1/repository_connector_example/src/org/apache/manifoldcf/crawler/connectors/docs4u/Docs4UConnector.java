@@ -85,6 +85,11 @@ public class Docs4UConnector extends BaseRepositoryConnector
   /** Session expiration time interval */
   protected final static long SESSION_EXPIRATION_MILLISECONDS = 300000L;
   
+  // The global deny token
+  
+  /** Global deny token for Docs4U */
+  public final static String GLOBAL_DENY_TOKEN = "DEAD_AUTHORITY";
+  
   // Local variables.
   
   /** The root directory */
@@ -646,10 +651,17 @@ public class Docs4UConnector extends BaseRepositoryConnector
                   }
                   
                   // Handle the security information
-                  String[] allowed = docData.getAllowed();
+                  rd.setACL(docData.getAllowed());
+                  // For disallowed, we must add in a global deny token
                   String[] disallowed = docData.getDisallowed();
-                  rd.setACL(allowed);
-                  rd.setDenyACL(disallowed);
+                  List<String> list = new ArrayList<String>();
+                  list.add(GLOBAL_DENY_TOKEN);
+                  j = 0;
+                  while (j < disallowed.length)
+                  {
+                    list.add(disallowed[j++]);
+                  }
+                  rd.setDenyACL(list.toArray(disallowed));
                   
                   // Index the document!
                   activities.ingestDocument(docID,version,url,rd);
