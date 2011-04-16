@@ -57,6 +57,18 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   /** User name mapping parameter */
   protected final static String PARAMETER_USERMAPPING = "usermapping";
 
+  /** This is the active directory global deny token.  This should be ingested with all documents. */
+  public static final String GLOBAL_DENY_TOKEN = "DEAD_AUTHORITY";
+  
+  // The prebuilt authorization responses for error conditions
+  
+  /** Unreachable Docs4U */
+  private static final AuthorizationResponse unreachableResponse = new AuthorizationResponse(
+    new String[]{GLOBAL_DENY_TOKEN},AuthorizationResponse.RESPONSE_UNREACHABLE);
+  /** User not found */
+  private static final AuthorizationResponse userNotFoundResponse = new AuthorizationResponse(
+    new String[]{GLOBAL_DENY_TOKEN},AuthorizationResponse.RESPONSE_USERNOTFOUND);
+
   // Local constants
   
   /** Session expiration time interval */
@@ -380,8 +392,62 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   public AuthorizationResponse getAuthorizationResponse(String userName)
     throws ManifoldCFException
   {
-    // MHL
-    return null;
+    if (Logging.authorityConnectors.isDebugEnabled())
+      Logging.authorityConnectors.debug("Docs4U: Received request for user '"+userName+"'");
+    
+    return getAuthorizationResponseUncached(userName);
+  }
+  
+  /** Uncached version of the getAuthorizationResponse method.
+  *@param userName is the user name or identifier.
+  *@return the response tokens (according to the current authority).
+  * (Should throws an exception only when a condition cannot be properly described within the authorization response object.)
+  */
+  protected AuthorizationResponse getAuthorizationResponseUncached(String userName)
+    throws ManifoldCFException
+  {
+    if (Logging.authorityConnectors.isDebugEnabled())
+      Logging.authorityConnectors.debug("Docs4U: Calculating response access tokens for user '"+userName+"'");
+
+    // Map the user to the final value
+    String d4uUser = matchMap.translate(userName);
+
+    if (Logging.authorityConnectors.isDebugEnabled())
+      Logging.authorityConnectors.debug("Docs4U: Mapped user name is '"+d4uUser+"'");
+    
+    // Set up the session
+    Docs4UAPI currentSession = getSession();
+    
+    try
+    {
+      // Find the user
+      String userID = currentSession.findUser(d4uUser);
+      if (userID == null)
+        return userNotFoundResponse;
+      // Find the user's groups
+      String[] groupIDs = currentSession.getUserOrGroupGroups(userID);
+      if (groupIDs == null)
+        return userNotFoundResponse;
+      // Construct an AuthorizationResponse from the set
+      String[] tokens = new String[groupIDs.length+1];
+      int i = 0;
+      while (i < groupIDs.length)
+      {
+        tokens[i] = groupIDs[i];
+        i++;
+      }
+      tokens[i] = userID;
+      return new AuthorizationResponse(tokens,AuthorizationResponse.RESPONSE_OK);
+    }
+    catch (InterruptedException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      Logging.authorityConnectors.error("Docs4U: Authority error: "+e.getMessage(),e);
+      throw new ManifoldCFException("Docs4U: Authority error: "+e.getMessage(),e);
+    }
   }
 
   /** Obtain the default access tokens for a given user name.
@@ -390,8 +456,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   */
   public AuthorizationResponse getDefaultAuthorizationResponse(String userName)
   {
-    // MHL
-    return null;
+    return unreachableResponse;
   }
 
 }

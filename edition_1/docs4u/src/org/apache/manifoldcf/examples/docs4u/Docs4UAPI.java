@@ -69,6 +69,13 @@ public interface Docs4UAPI
   public String createUserOrGroup(String name, String loginID, String[] groups)
     throws InterruptedException, D4UException;
   
+  /** Find a user based on login ID.
+  *@param loginID is the login ID.
+  *@return the user ID, or null if it was not found.
+  */
+  public String findUser(String loginID)
+    throws InterruptedException, D4UException;
+    
   /** Update a user or group.
   *@param userGroupID is the user or group ID.
   *@param name is the user or group's name.
