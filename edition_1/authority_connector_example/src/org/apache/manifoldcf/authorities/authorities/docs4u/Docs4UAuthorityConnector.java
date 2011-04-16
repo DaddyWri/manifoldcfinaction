@@ -74,6 +74,11 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   /** Session expiration time interval */
   protected final static long SESSION_EXPIRATION_MILLISECONDS = 300000L;
   
+  // Cache manager.
+  
+  /** The cache manager. */
+  protected ICacheManager cacheManager = null;
+
   // Local variables.
   
   /** The root directory */
@@ -90,6 +95,23 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   public Docs4UAuthorityConnector()
   {
     super();
+  }
+
+  /** Set thread context.
+  */
+  public void setThreadContext(IThreadContext tc)
+    throws ManifoldCFException
+  {
+    super.setThreadContext(tc);
+    cacheManager = CacheManagerFactory.make(tc);
+  }
+  
+  /** Clear thread context.
+  */
+  public void clearThreadContext()
+  {
+    super.clearThreadContext();
+    cacheManager = null;
   }
 
   /** Output the configuration header section.
@@ -395,7 +417,35 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     if (Logging.authorityConnectors.isDebugEnabled())
       Logging.authorityConnectors.debug("Docs4U: Received request for user '"+userName+"'");
     
-    return getAuthorizationResponseUncached(userName);
+    ICacheDescription objectDescription = new AuthorizationResponseDescription(userName,rootDirectory,matchMap.toString());
+    
+    // Enter the cache
+    ICacheHandle ch = cacheManager.enterCache(new ICacheDescription[]{objectDescription},null,null);
+    try
+    {
+      ICacheCreateHandle createHandle = cacheManager.enterCreateSection(ch);
+      try
+      {
+        // Lookup the object
+        AuthorizationResponse response = (AuthorizationResponse)cacheManager.lookupObject(createHandle,objectDescription);
+        if (response != null)
+          return response;
+        // Create the object.
+        response = getAuthorizationResponseUncached(userName);
+        // Save it in the cache
+        cacheManager.saveObject(createHandle,objectDescription,response);
+        // And return it...
+        return response;
+      }
+      finally
+      {
+        cacheManager.leaveCreateSection(createHandle);
+      }
+    }
+    finally
+    {
+      cacheManager.leaveCache(ch);
+    }
   }
   
   /** Uncached version of the getAuthorizationResponse method.
@@ -457,6 +507,71 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   public AuthorizationResponse getDefaultAuthorizationResponse(String userName)
   {
     return unreachableResponse;
+  }
+
+  protected static long responseLifetime = 60000L;
+  protected static int LRUsize = 1000;
+  protected static StringSet emptyStringSet = new StringSet();
+  
+  /** This is the cache object descriptor for cached access tokens from
+  * this connector.
+  */
+  protected static class AuthorizationResponseDescription extends org.apache.manifoldcf.core.cachemanager.BaseDescription
+  {
+    /** The user name associated with the access tokens */
+    protected String userName;
+    /** The repository path */
+    protected String repositoryRoot;
+    /** The user mapping */
+    protected String userMapping;
+    /** The expiration time */
+    protected long expirationTime = -1;
+    
+    /** Constructor. */
+    public AuthorizationResponseDescription(String userName, String repositoryRoot,
+      String userMapping)
+    {
+      super("Docs4UAuthority",LRUsize);
+      this.userName = userName;
+      this.repositoryRoot = repositoryRoot;
+      this.userMapping = userMapping;
+    }
+
+    /** Return the invalidation keys for this object. */
+    public StringSet getObjectKeys()
+    {
+      return emptyStringSet;
+    }
+
+    /** Get the critical section name, used for synchronizing the creation of the object */
+    public String getCriticalSectionName()
+    {
+      return getClass().getName() + "-" + userName + "-" + repositoryRoot +
+        "-" + userMapping;
+    }
+
+    /** Return the object expiration interval */
+    public long getObjectExpirationTime(long currentTime)
+    {
+      if (expirationTime == -1)
+        expirationTime = currentTime + responseLifetime;
+      return expirationTime;
+    }
+
+    public int hashCode()
+    {
+      return userName.hashCode() + repositoryRoot.hashCode() + userMapping.hashCode();
+    }
+    
+    public boolean equals(Object o)
+    {
+      if (!(o instanceof AuthorizationResponseDescription))
+        return false;
+      AuthorizationResponseDescription ard = (AuthorizationResponseDescription)o;
+      return ard.userName.equals(userName) && ard.repositoryRoot.equals(repositoryRoot) &&
+        ard.userMapping.equals(userMapping);
+    }
+    
   }
 
 }
