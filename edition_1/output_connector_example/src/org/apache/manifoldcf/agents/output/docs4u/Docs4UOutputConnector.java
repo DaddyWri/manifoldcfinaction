@@ -701,6 +701,12 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     out.print(
 "function ocCheckAccessMappingTab()\n"+
 "{\n"+
+"  if (editjob.ocsecurityregexp.value != \"\" && !isRegularExpression(editjob.ocsecurityregexp.value))\n"+
+"  {\n"+
+"    alert(\"Security mapping regular expression must be a valid regular expression\");\n"+
+"    editjob.ocsecurityregexp.focus();\n"+
+"    return false;\n"+
+"  }\n"+
 "  return true;\n"+
 "}\n"+
 "\n"
