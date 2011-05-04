@@ -295,6 +295,40 @@ public class Docs4UAPIImpl implements Docs4UAPI
     }
   }
 
+  /** Find a user or group by name.
+  *@param name is the user or group name.
+  *@return the user or group ID, or null if it was not found.
+  */
+  public String findUserOrGroup(String name)
+    throws InterruptedException, D4UException
+  {
+    File[] usersLocks = new File[]{usersLockFile};
+    makeLocks(usersLocks);
+    try
+    {
+      File[] files = usersFolder.listFiles();
+      if (files == null)
+        return null;
+      int i = 0;
+      while (i < files.length)
+      {
+        File f = files[i++];
+        String[] userGroupFileContent = readValues(f);
+        if (userGroupFileContent != null)
+        {
+          String userGroupName = getUserGroupName(userGroupFileContent);
+          if (userGroupName.equals(name))
+            return f.getName();
+        }
+      }
+      return null;
+    }
+    finally
+    {
+      clearLocks(usersLocks);
+    }
+  }
+
   /** Get a user or group's name.
   *@param userGroupID is the user or group ID.
   *@return the name, or null if the ID did not exist.
