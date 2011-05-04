@@ -415,8 +415,6 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public boolean requestInfo(Configuration output, String command)
     throws ManifoldCFException
   {
-    // MHL
-    /*
     // Look for the commands we know about
     if (command.equals("metadata"))
     {
@@ -449,7 +447,6 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     }
     else
       return super.requestInfo(output,command);
-    */
     return true;
   }
 
