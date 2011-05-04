@@ -75,7 +75,14 @@ public interface Docs4UAPI
   */
   public String findUser(String loginID)
     throws InterruptedException, D4UException;
-    
+
+  /** Find a user or group by name.
+  *@param name is the user or group name.
+  *@return the user or group ID, or null if it was not found.
+  */
+  public String findUserOrGroup(String name)
+    throws InterruptedException, D4UException;
+
   /** Update a user or group.
   *@param userGroupID is the user or group ID.
   *@param name is the user or group's name.
