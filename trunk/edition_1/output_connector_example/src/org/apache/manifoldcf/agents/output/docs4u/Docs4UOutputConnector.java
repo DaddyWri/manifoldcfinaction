@@ -620,6 +620,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
             String mappedField = (String)fieldMap.get(field);
             if (mappedField != null)
             {
+              if (Logging.ingest.isDebugEnabled())
+                Logging.ingest.debug("For document '"+documentURI+"', field '"+field+"' maps to target field '"+mappedField+"'");
               // We have a source field and a target field; copy the attribute
               Object[] values = document.getField(field);
               // We only handle string metadata at this time.
@@ -631,6 +633,11 @@ public class Docs4UOutputConnector extends BaseOutputConnector
                 k++;
               }
               docObject.setMetadata(mappedField,stringValues);
+            }
+            else
+            {
+              if (Logging.ingest.isDebugEnabled())
+                Logging.ingest.debug("For document '"+documentURI+"', field '"+field+"' discarded");
             }
           }
           
@@ -669,8 +676,10 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       {
         resultCode = "ERROR";
         resultReason = e.getMessage();
+        Logging.ingest.warn("Docs4U: Error ingesting '"+documentURI+"': "+e.getMessage(),e);
         // Decide whether this is a service interruption or a real error, and throw accordingly.
-        throw new ManifoldCFException(e.getMessage(),e);
+        // Docs4U never throws service interruptions.
+        throw new ManifoldCFException("Error ingesting '"+documentURI+"': "+e.getMessage(),e);
       }
     }
     finally
@@ -741,8 +750,9 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       {
         resultCode = "ERROR";
         resultReason = e.getMessage();
+        Logging.ingest.warn("Docs4U: Error removing '"+documentURI+"': "+e.getMessage(),e);
         // Decide whether this is a service interruption or a real error, and throw accordingly.
-        throw new ManifoldCFException(e.getMessage(),e);
+        throw new ManifoldCFException("Error removing '"+documentURI+"': "+e.getMessage(),e);
       }
     }
     finally
