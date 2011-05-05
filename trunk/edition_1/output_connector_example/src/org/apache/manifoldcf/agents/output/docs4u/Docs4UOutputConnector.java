@@ -705,7 +705,55 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public void removeDocument(String documentURI, String outputDescription, IOutputRemoveActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
+    // Unpack what we need from the output description
+    StringBuffer urlMetadataNameBuffer = new StringBuffer();
+    unpack(urlMetadataNameBuffer,outputDescription,0,'+');
+    String urlMetadataName = urlMetadataNameBuffer.toString();
+
+    // Handle activity logging.
+    long startTime = System.currentTimeMillis();
+    String resultCode = "OK";
+    String resultReason = null;
+    
+    try
+    {
+      // Get a Docs4U session to work with.
+      Docs4UAPI session = getSession();
+      try
+      {
+        Map lookupMap = new HashMap();
+        lookupMap.put(urlMetadataName,documentURI);
+        D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
+        if (iter.hasNext())
+        {
+          String documentID = iter.getNext();
+          session.deleteDocument(documentID);
+        }
+      }
+      catch (InterruptedException e)
+      {
+        // We don't log interruptions, just exit immediately.
+        resultCode = null;
+        // Throw an interruption signal.
+        throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+      }
+      catch (D4UException e)
+      {
+        resultCode = "ERROR";
+        resultReason = e.getMessage();
+        // Decide whether this is a service interruption or a real error, and throw accordingly.
+        throw new ManifoldCFException(e.getMessage(),e);
+      }
+    }
+    finally
+    {
+      // Log the activity - but only if it wasn't interrupted
+      if (resultCode != null)
+      {
+        activities.recordActivity(new Long(startTime),ACTIVITY_DELETE,null,documentURI,
+          resultCode,resultReason);
+      }
+    }
   }
 
   /** Notify the connector of a completed job.
@@ -716,7 +764,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public void noteJobComplete(IOutputNotifyActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
+    // Does nothing for Docs4U
   }
 
   // UI support methods.
