@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Iterator;
 
 // This is where we get agent system loggers
 import org.apache.manifoldcf.agents.system.Logging;
@@ -46,6 +47,7 @@ import org.apache.manifoldcf.ui.util.Encoder;
 import org.apache.manifoldcf.examples.docs4u.Docs4UAPI;
 import org.apache.manifoldcf.examples.docs4u.D4UFactory;
 import org.apache.manifoldcf.examples.docs4u.D4UDocInfo;
+import org.apache.manifoldcf.examples.docs4u.D4UDocumentIterator;
 import org.apache.manifoldcf.examples.docs4u.D4UException;
 
 /** This is the Docs4U output connector class.  This extends the base output connectors class,
@@ -487,8 +489,37 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public String getOutputDescription(OutputSpecification spec)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
-    return "";
+    String urlMetadataName = "";
+    String securityMap = "";
+    ArrayList metadataMappings = new ArrayList();
+    
+    int i = 0;
+    while (i < spec.getChildCount())
+    {
+      SpecificationNode sn = spec.getChild(i++);
+      if (sn.getType().equals(NODE_URL_METADATA_NAME))
+        urlMetadataName = sn.getAttributeValue(ATTRIBUTE_VALUE);
+      else if (sn.getType().equals(NODE_SECURITY_MAP))
+        securityMap = sn.getAttributeValue(ATTRIBUTE_VALUE);
+      else if (sn.getType().equals(NODE_METADATA_MAP))
+      {
+        String recordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
+        String recordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
+        String[] fixedList = new String[]{recordSource,recordTarget};
+        StringBuffer packBuffer = new StringBuffer();
+        packFixedList(packBuffer,fixedList,':');
+        metadataMappings.add(packBuffer.toString());
+      }
+    }
+    
+    // Now, form the final string.
+    StringBuffer sb = new StringBuffer();
+    
+    pack(sb,urlMetadataName,'+');
+    pack(sb,securityMap,'+');
+    packList(sb,metadataMappings,',');
+
+    return sb.toString();
   }
 
   /** Add (or replace) a document in the output data store using the connector.
@@ -508,10 +539,128 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public int addOrReplaceDocument(String documentURI, String outputDescription, RepositoryDocument document, String authorityNameString, IOutputAddActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
-    return DOCUMENTSTATUS_REJECTED;
+    // First, unpack the output description.
+    int index = 0;
+    StringBuffer urlMetadataNameBuffer = new StringBuffer();
+    StringBuffer securityMapBuffer = new StringBuffer();
+    ArrayList metadataMappings = new ArrayList();
+
+    index = unpack(urlMetadataNameBuffer,outputDescription,index,'+');
+    index = unpack(securityMapBuffer,outputDescription,index,'+');
+    index = unpackList(metadataMappings,outputDescription,index,',');
+    
+    String urlMetadataName = urlMetadataNameBuffer.toString();
+    Map fieldMap = new HashMap();
+    int j = 0;
+    while (j < metadataMappings.size())
+    {
+      String metadataMapping = (String)metadataMappings.get(j++);
+      // Unpack
+      String[] mappingData = new String[2];
+      unpackFixedList(mappingData,metadataMapping,0,':');
+      fieldMap.put(mappingData[0],mappingData[1]);
+    }
+    
+    // Get a Docs4U session to work with.
+    Docs4UAPI session = getSession();
+    try
+    {
+      // Let's form the D4UDocInfo object for the document.  Do this first, since there's no
+      // guarantee we'll succeed here.
+      D4UDocInfo docObject = D4UFactory.makeDocInfo();
+      try
+      {
+        // First, fill in the security info, since that might well cause us to reject the document outright.
+        // We can only accept the document if the security information is compatible with the Docs4U
+        // model, and if the mapped user or group exists in the target repository.
+        if (document.countDirectoryACLs() > 0)
+          return DOCUMENTSTATUS_REJECTED;
+        
+        String[] shareAcl = document.getShareACL();
+        if (shareAcl != null && shareAcl.length > 0)
+          return DOCUMENTSTATUS_REJECTED;
+        
+        String[] shareDenyAcl = document.getShareDenyACL();
+        if (shareDenyAcl != null && shareDenyAcl.length > 0)
+          return DOCUMENTSTATUS_REJECTED;
+        
+        String[] acl = performUserGroupMapping(document.getACL());
+        if (acl == null)
+          return DOCUMENTSTATUS_REJECTED;
+        docObject.setAllowed(acl);
+        String[] denyAcl = performUserGroupMapping(document.getDenyACL());
+        if (denyAcl == null)
+          return DOCUMENTSTATUS_REJECTED;
+        
+        // Next, map the metadata.  If this doesn't succeed, nothing is lost and we can still continue.
+        Iterator fields = document.getFields();
+        while (fields.hasNext())
+        {
+          String field = (String)fields.next();
+          String mappedField = (String)fieldMap.get(field);
+          if (mappedField != null)
+          {
+            // We have a source field and a target field; copy the attribute
+            Object[] values = document.getField(field);
+            // We only handle string metadata at this time.
+            String[] stringValues = new String[values.length];
+            int k = 0;
+            while (k < stringValues.length)
+            {
+              stringValues[k] = (String)values[k];
+              k++;
+            }
+            docObject.setMetadata(mappedField,stringValues);
+          }
+        }
+        
+        // Finally, copy the content.  The input stream returned by getBinaryStream() should NOT
+        // be closed, just read.
+        docObject.setData(document.getBinaryStream());
+        
+        // Next, look up the Docs4U identifier for the document.
+        Map lookupMap = new HashMap();
+        lookupMap.put(urlMetadataName,documentURI);
+        D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
+        String documentID;
+        if (iter.hasNext())
+        {
+          documentID = iter.getNext();
+          session.updateDocument(documentID,docObject);
+        }
+        else
+          documentID = session.createDocument(docObject);
+
+      }
+      finally
+      {
+        docObject.close();
+      }
+      return DOCUMENTSTATUS_REJECTED;
+    }
+    catch (InterruptedException e)
+    {
+      // Throw an interruption signal.
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      // Decide whether this is a service interruption or a real error, and throw accordingly.
+      throw new ManifoldCFException(e.getMessage(),e);
+    }
   }
 
+  /** Perform the mapping from access token to user/group name to Docs4U user/group ID.
+  *@return null if the mapping cannot be performed, in which case the document will be
+  * rejected by the caller.
+  */
+  protected String[] performUserGroupMapping(String[] inputACL)
+    throws ManifoldCFException, ServiceInterruption, D4UException
+  {
+    // MHL
+    return null;
+  }
+  
   /** Remove a document using the connector.
   * Note that the last outputDescription is included, since it may be necessary for the connector to use such information to know how to properly remove the document.
   *@param documentURI is the URI of the document.  The URI is presumed to be the unique identifier which the output data store will use to process
