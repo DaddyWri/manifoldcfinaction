@@ -536,7 +536,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param activities is the handle to an object that the implementer of an output connector may use to perform operations, such as logging processing activity.
   *@return the document status (accepted or permanently rejected).
   */
-  public int addOrReplaceDocument(String documentURI, String outputDescription, RepositoryDocument document, String authorityNameString, IOutputAddActivity activities)
+  public int addOrReplaceDocument(String documentURI, String outputDescription,
+    RepositoryDocument document, String authorityNameString, IOutputAddActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
     // First, unpack the output description.
@@ -560,93 +561,126 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       unpackFixedList(mappingData,metadataMapping,0,':');
       fieldMap.put(mappingData[0],mappingData[1]);
     }
+
+    // Handle activity logging.
+    long startTime = System.currentTimeMillis();
+    String resultCode = "OK";
+    String resultReason = null;
+    long byteCount = 0L;
     
-    // Get a Docs4U session to work with.
-    Docs4UAPI session = getSession();
     try
     {
-      // Let's form the D4UDocInfo object for the document.  Do this first, since there's no
-      // guarantee we'll succeed here.
-      D4UDocInfo docObject = D4UFactory.makeDocInfo();
+      // Get a Docs4U session to work with.
+      Docs4UAPI session = getSession();
       try
       {
-        // First, fill in the security info, since that might well cause us to reject the document outright.
-        // We can only accept the document if the security information is compatible with the Docs4U
-        // model, and if the mapped user or group exists in the target repository.
-        if (document.countDirectoryACLs() > 0)
-          return DOCUMENTSTATUS_REJECTED;
+        // Let's form the D4UDocInfo object for the document.  Do this first, since there's no
+        // guarantee we'll succeed here.
         
-        String[] shareAcl = document.getShareACL();
-        if (shareAcl != null && shareAcl.length > 0)
-          return DOCUMENTSTATUS_REJECTED;
-        
-        String[] shareDenyAcl = document.getShareDenyACL();
-        if (shareDenyAcl != null && shareDenyAcl.length > 0)
-          return DOCUMENTSTATUS_REJECTED;
-        
-        String[] acl = performUserGroupMapping(document.getACL());
-        if (acl == null)
-          return DOCUMENTSTATUS_REJECTED;
-        docObject.setAllowed(acl);
-        String[] denyAcl = performUserGroupMapping(document.getDenyACL());
-        if (denyAcl == null)
-          return DOCUMENTSTATUS_REJECTED;
-        
-        // Next, map the metadata.  If this doesn't succeed, nothing is lost and we can still continue.
-        Iterator fields = document.getFields();
-        while (fields.hasNext())
+        D4UDocInfo docObject = D4UFactory.makeDocInfo();
+        try
         {
-          String field = (String)fields.next();
-          String mappedField = (String)fieldMap.get(field);
-          if (mappedField != null)
+          // First, fill in the security info, since that might well cause us to reject the document outright.
+          // We can only accept the document if the security information is compatible with the Docs4U
+          // model, and if the mapped user or group exists in the target repository.
+          
+          if (document.countDirectoryACLs() > 0)
           {
-            // We have a source field and a target field; copy the attribute
-            Object[] values = document.getField(field);
-            // We only handle string metadata at this time.
-            String[] stringValues = new String[values.length];
-            int k = 0;
-            while (k < stringValues.length)
-            {
-              stringValues[k] = (String)values[k];
-              k++;
-            }
-            docObject.setMetadata(mappedField,stringValues);
+            resultCode = "REJECTED";
+            resultReason = "Directory ACLs present";
+            return DOCUMENTSTATUS_REJECTED;
           }
+          
+          String[] shareAcl = document.getShareACL();
+          String[] shareDenyAcl = document.getShareDenyACL();
+          if ((shareAcl != null && shareAcl.length > 0) ||
+            (shareDenyAcl != null && shareDenyAcl.length > 0))
+          {
+            resultCode = "REJECTED";
+            resultReason = "Share ACLs present";
+            return DOCUMENTSTATUS_REJECTED;
+          }
+          
+          String[] acl = performUserGroupMapping(document.getACL());
+          String[] denyAcl = performUserGroupMapping(document.getDenyACL());
+          if (acl == null || denyAcl == null)
+          {
+            resultCode = "REJECTED";
+            resultReason = "Access tokens did not map";
+            return DOCUMENTSTATUS_REJECTED;
+          }
+          docObject.setAllowed(acl);
+          docObject.setDisallowed(denyAcl);
+          
+          // Next, map the metadata.  If this doesn't succeed, nothing is lost and we can still continue.
+          Iterator fields = document.getFields();
+          while (fields.hasNext())
+          {
+            String field = (String)fields.next();
+            String mappedField = (String)fieldMap.get(field);
+            if (mappedField != null)
+            {
+              // We have a source field and a target field; copy the attribute
+              Object[] values = document.getField(field);
+              // We only handle string metadata at this time.
+              String[] stringValues = new String[values.length];
+              int k = 0;
+              while (k < stringValues.length)
+              {
+                stringValues[k] = (String)values[k];
+                k++;
+              }
+              docObject.setMetadata(mappedField,stringValues);
+            }
+          }
+          
+          // Finally, copy the content.  The input stream returned by getBinaryStream() should NOT
+          // be closed, just read.
+          byteCount = document.getBinaryLength();
+          docObject.setData(document.getBinaryStream());
+          
+          // Next, look up the Docs4U identifier for the document.
+          Map lookupMap = new HashMap();
+          lookupMap.put(urlMetadataName,documentURI);
+          D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
+          String documentID;
+          if (iter.hasNext())
+          {
+            documentID = iter.getNext();
+            session.updateDocument(documentID,docObject);
+          }
+          else
+            documentID = session.createDocument(docObject);
+          return DOCUMENTSTATUS_ACCEPTED;
         }
-        
-        // Finally, copy the content.  The input stream returned by getBinaryStream() should NOT
-        // be closed, just read.
-        docObject.setData(document.getBinaryStream());
-        
-        // Next, look up the Docs4U identifier for the document.
-        Map lookupMap = new HashMap();
-        lookupMap.put(urlMetadataName,documentURI);
-        D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
-        String documentID;
-        if (iter.hasNext())
+        finally
         {
-          documentID = iter.getNext();
-          session.updateDocument(documentID,docObject);
+          docObject.close();
         }
-        else
-          documentID = session.createDocument(docObject);
-
       }
-      finally
+      catch (InterruptedException e)
       {
-        docObject.close();
+        // We don't log interruptions, just exit immediately.
+        resultCode = null;
+        // Throw an interruption signal.
+        throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
       }
-      return DOCUMENTSTATUS_REJECTED;
+      catch (D4UException e)
+      {
+        resultCode = "ERROR";
+        resultReason = e.getMessage();
+        // Decide whether this is a service interruption or a real error, and throw accordingly.
+        throw new ManifoldCFException(e.getMessage(),e);
+      }
     }
-    catch (InterruptedException e)
+    finally
     {
-      // Throw an interruption signal.
-      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
-    }
-    catch (D4UException e)
-    {
-      // Decide whether this is a service interruption or a real error, and throw accordingly.
-      throw new ManifoldCFException(e.getMessage(),e);
+      // Log the activity - but only if it wasn't interrupted
+      if (resultCode != null)
+      {
+        activities.recordActivity(new Long(startTime),ACTIVITY_SAVE,new Long(byteCount),documentURI,
+          resultCode,resultReason);
+      }
     }
   }
 
