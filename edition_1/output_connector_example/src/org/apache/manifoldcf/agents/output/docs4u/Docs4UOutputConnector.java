@@ -109,6 +109,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   
   /** The UserGroupLookupManager class */
   protected UserGroupLookupManager userGroupLookupManager = null;
+  /** The lock manager */
+  protected ILockManager lockManager = null;
   
   /** Constructor */
   public Docs4UOutputConnector()
@@ -155,6 +157,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   public void clearThreadContext()
   {
     userGroupLookupManager = null;
+    lockManager = null;
     super.clearThreadContext();
   }
 
@@ -166,6 +169,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   {
     super.setThreadContext(threadContext);
     userGroupLookupManager = new UserGroupLookupManager(threadContext);
+    lockManager = LockManagerFactory.make(threadContext);
   }
 
   /** Output the configuration header section.
@@ -572,6 +576,9 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     String resultReason = null;
     long byteCount = 0L;
     
+    // Expire stuff before we get going.
+    userGroupLookupManager.cleanupExpiredRecords(startTime);
+    
     try
     {
       // Get a Docs4U session to work with.
@@ -745,29 +752,39 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   protected String lookupUserGroup(String userGroupName, long currentTime)
     throws ManifoldCFException, ServiceInterruption
   {
-    // Try the database first
-    String userGroupID = userGroupLookupManager.lookupUserGroup(userGroupName);
-    if (userGroupID != null)
-      return userGroupID;
-    // Ok, we have to look it up in Docs4U.
+    // We need to put a lock around things to prevent race conditions.
+    String lockName = makeLockName(userGroupName);
+    lockManager.enterWriteLock(lockName);
     try
     {
-      Docs4UAPI session = getSession();
-      userGroupID = session.findUserOrGroup(userGroupName);
-      if (userGroupID == null)
-        return null;
-      // Save it in database for future reference
-      userGroupLookupManager.addUserGroup(userGroupName,userGroupID,currentTime + CACHE_LIFETIME);
-      return userGroupID;
+      // Try the database first
+      String userGroupID = userGroupLookupManager.lookupUserGroup(userGroupName);
+      if (userGroupID != null)
+        return userGroupID;
+      // Ok, we have to look it up in Docs4U.
+      try
+      {
+        Docs4UAPI session = getSession();
+        userGroupID = session.findUserOrGroup(userGroupName);
+        if (userGroupID == null)
+          return null;
+        // Save it in database for future reference
+        userGroupLookupManager.addUserGroup(userGroupName,userGroupID,currentTime + CACHE_LIFETIME);
+        return userGroupID;
+      }
+      catch (InterruptedException e)
+      {
+        throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+      }
+      catch (D4UException e)
+      {
+        Logging.ingest.error("Error looking up user/group: "+e.getMessage(),e);
+        throw new ManifoldCFException("Error looking up user/group: "+e.getMessage(),e);
+      }
     }
-    catch (InterruptedException e)
+    finally
     {
-      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
-    }
-    catch (D4UException e)
-    {
-      Logging.ingest.error("Error looking up user/group: "+e.getMessage(),e);
-      throw new ManifoldCFException("Error looking up user/group: "+e.getMessage(),e);
+      lockManager.leaveWriteLock(lockName);
     }
   }
   
@@ -1762,6 +1779,15 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     return startPosition;
   }
 
+  /** Calculate a lock name given a user/group name.
+  *@param userGroupName is the user/group name.
+  *@return the lock name.
+  */
+  protected static String makeLockName(String userGroupName)
+  {
+    return "docs4u-usergroup-"+userGroupName;
+  }
+  
   // Protected UI support methods
   
   /** Get an ordered list of metadata names.
