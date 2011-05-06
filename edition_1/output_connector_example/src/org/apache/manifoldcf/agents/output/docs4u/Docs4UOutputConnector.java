@@ -728,6 +728,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     long currentTime)
     throws ManifoldCFException, ServiceInterruption
   {
+    if (inputACL == null)
+      return new String[0];
     // Create an output list
     String[] rval = new String[inputACL.length];
     int i = 0;
