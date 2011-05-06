@@ -94,6 +94,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   
   /** Session expiration time interval */
   protected final static long SESSION_EXPIRATION_MILLISECONDS = 300000L;
+  /** Database user lookup cache lifetime */
+  protected final static long CACHE_LIFETIME = 300000L;
   
   // Local variables.
   
@@ -562,6 +564,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       fieldMap.put(mappingData[0],mappingData[1]);
     }
 
+    MatchMap securityMap = new MatchMap(securityMapBuffer.toString());
+    
     // Handle activity logging.
     long startTime = System.currentTimeMillis();
     String resultCode = "OK";
@@ -601,8 +605,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
             return DOCUMENTSTATUS_REJECTED;
           }
           
-          String[] acl = performUserGroupMapping(document.getACL());
-          String[] denyAcl = performUserGroupMapping(document.getDenyACL());
+          String[] acl = performUserGroupMapping(document.getACL(),securityMap,startTime);
+          String[] denyAcl = performUserGroupMapping(document.getDenyACL(),securityMap,startTime);
           if (acl == null || denyAcl == null)
           {
             resultCode = "REJECTED";
@@ -667,20 +671,33 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       }
       catch (InterruptedException e)
       {
-        // We don't log interruptions, just exit immediately.
-        resultCode = null;
         // Throw an interruption signal.
         throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
       }
       catch (D4UException e)
       {
-        resultCode = "ERROR";
-        resultReason = e.getMessage();
         Logging.ingest.warn("Docs4U: Error ingesting '"+documentURI+"': "+e.getMessage(),e);
         // Decide whether this is a service interruption or a real error, and throw accordingly.
         // Docs4U never throws service interruptions.
         throw new ManifoldCFException("Error ingesting '"+documentURI+"': "+e.getMessage(),e);
       }
+    }
+    catch (ManifoldCFException e)
+    {
+      if (e.getErrorCode() == ManifoldCFException.INTERRUPTED)
+      {
+        resultCode = null;
+        throw e;
+      }
+      resultCode = "ERROR";
+      resultReason = e.getMessage();
+      throw e;
+    }
+    catch (ServiceInterruption e)
+    {
+      resultCode = "ERROR";
+      resultReason = e.getMessage();
+      throw e;
     }
     finally
     {
@@ -694,14 +711,64 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   }
 
   /** Perform the mapping from access token to user/group name to Docs4U user/group ID.
+  *@param inputACL is the access tokens to map.
+  *@param securityMap is the mapping object.
+  *@param currentTime is the current time in milliseconds since epoch.
   *@return null if the mapping cannot be performed, in which case the document will be
-  * rejected by the caller.
+  * rejected by the caller, or the mapped user/group ID's.
   */
-  protected String[] performUserGroupMapping(String[] inputACL)
-    throws ManifoldCFException, ServiceInterruption, D4UException
+  protected String[] performUserGroupMapping(String[] inputACL, MatchMap securityMap,
+    long currentTime)
+    throws ManifoldCFException, ServiceInterruption
   {
-    // MHL
-    return null;
+    // Create an output list
+    String[] rval = new String[inputACL.length];
+    int i = 0;
+    while (i < rval.length)
+    {
+      String inputToken = inputACL[i];
+      String mappedUserGroup = securityMap.translate(inputToken);
+      String userGroupID = lookupUserGroup(mappedUserGroup,currentTime);
+      if (userGroupID == null)
+        return null;
+      rval[i++] = userGroupID;
+    }
+    return rval;
+  }
+  
+  /** Lookup the user/group id given the user/group name.
+  * This is a slow operation for Docs4U, so I've built a database table where we can look it up quickly, if it exists.
+  *@param userGroupName is the name of the user/group.
+  *@param currentTime is the current time in milliseconds since epoch.
+  *@return the user/group ID, or null if not found.
+  */
+  protected String lookupUserGroup(String userGroupName, long currentTime)
+    throws ManifoldCFException, ServiceInterruption
+  {
+    // Try the database first
+    String userGroupID = userGroupLookupManager.lookupUserGroup(userGroupName);
+    if (userGroupID != null)
+      return userGroupID;
+    // Ok, we have to look it up in Docs4U.
+    try
+    {
+      Docs4UAPI session = getSession();
+      userGroupID = session.findUserOrGroup(userGroupName);
+      if (userGroupID == null)
+        return null;
+      // Save it in database for future reference
+      userGroupLookupManager.addUserGroup(userGroupName,userGroupID,currentTime + CACHE_LIFETIME);
+      return userGroupID;
+    }
+    catch (InterruptedException e)
+    {
+      throw new ManifoldCFException(e.getMessage(),e,ManifoldCFException.INTERRUPTED);
+    }
+    catch (D4UException e)
+    {
+      Logging.ingest.error("Error looking up user/group: "+e.getMessage(),e);
+      throw new ManifoldCFException("Error looking up user/group: "+e.getMessage(),e);
+    }
   }
   
   /** Remove a document using the connector.
