@@ -624,6 +624,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
           docObject.setDisallowed(denyAcl);
           
           // Next, map the metadata.  If this doesn't succeed, nothing is lost and we can still continue.
+          docObject.setMetadata(urlMetadataName,new String[]{documentURI});
           Iterator fields = document.getFields();
           while (fields.hasNext())
           {
