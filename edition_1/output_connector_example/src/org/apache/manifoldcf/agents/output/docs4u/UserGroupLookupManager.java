@@ -38,13 +38,6 @@ public class UserGroupLookupManager extends BaseTable
   protected final static String userGroupIDField = "usergroupid";
   protected final static String expirationTimeField = "expirationtime";
   
-  /** The overall table cache key */
-  protected final static String TABLE_CACHEKEY = "table-"+DATABASE_TABLE_NAME;
-  /** The prefix of the per-key cache key */
-  protected final static String KEY_CACHEKEY_PREFIX = TABLE_CACHEKEY + "-";
-  /** The overall table cache key set */
-  protected final static StringSet tableCacheKeySet = new StringSet(TABLE_CACHEKEY);
-  
   /** The thread context */
   protected IThreadContext threadContext;
   
@@ -81,76 +74,50 @@ public class UserGroupLookupManager extends BaseTable
   public void destroy()
     throws ManifoldCFException
   {
-    performDrop(tableCacheKeySet);
+    performDrop(null);
   }
 
-  /**
-  public String[] findValues(String key)
+  /** Given a user/group name, look up an id.
+  *@param userGroupName is the user or group name.
+  *@return user/group ID, or null of the user/group name was not found.
+  */
+  public String lookupUserGroup(String userGroupName)
     throws ManifoldCFException
   {
-    // We will cache this against the table as a whole, and also against the
-    // values for the given key.  Any changes to either will invalidate it.
-    StringSet cacheKeys = new StringSet(new String[]{TABLE_CACHEKEY,makeKeyCacheKey(key)});
-    // Construct the parameters
     ArrayList params = new ArrayList();
-    params.add(key);
-    // Perform the query
-    IResultSet set = performQuery("SELECT "+valueField+" FROM "+getTableName()+
-      " WHERE "+keyField+"=?",params,cacheKeys,null);
-    // Assemble the results
-    String[] results = new String[set.getRowCount()];
-    int i = 0;
-    while (i < results.length)
-    {
-      IResultRow row = set.getRow(i);
-      results[i] = (String)row.getValue(valueField);
-      i++;
-    }
-    return results;
+    params.add(userGroupName);
+    IResultSet results = performQuery("SELECT "+userGroupIDField+" FROM "+getTableName()+
+      " WHERE "+userGroupNameField+"=?",params,null,null);
+    if (results.getRowCount() == 0)
+      return null;
+    IResultRow row = results.getRow(0);
+    return (String)row.getValue(userGroupIDField);
   }
   
-  public void deleteKeyValues(String key)
+  /** Add a user/group name and id to the table.
+  *@param userGroupName is the user/group name.
+  *@param userGroupID is the user/group ID.
+  *@param expirationTime is the time the record expires.
+  */
+  public void addUserGroup(String userGroupName, String userGroupID, long expirationTime)
     throws ManifoldCFException
   {
-    // Prepare the parameters
+    Map map = new HashMap();
+    map.put(userGroupNameField,userGroupName);
+    map.put(userGroupIDField,userGroupID);
+    map.put(expirationTimeField,new Long(expirationTime));
+    performInsert(map,null);
+  }
+  
+  /** Clean out expired records.
+  *@param currentTime is the current time.
+  */
+  public void cleanupExpiredRecords(long currentTime)
+    throws ManifoldCFException
+  {
     ArrayList params = new ArrayList();
-    params.add(key);
-    // Prepare the invalidation keys
-    StringSet invalidationKeys = new StringSet(new String[]{makeKeyCacheKey(key)});
-    // Perform the delete
-    performDelete("WHERE "+keyField+"=?",params,invalidationKeys);
-  }
-  
-  public void addKeyValue(String key, String value)
-    throws ManifoldCFException
-  {
-    // Prepare the fields
-    Map fields = new HashMap();
-    fields.put(idField,IDFactory.make(threadContext));
-    fields.put(keyField,key);
-    fields.put(valueField,value);
-    // Prepare the invalidation keys
-    StringSet invalidationKeys = new StringSet(new String[]{makeKeyCacheKey(key)});
-    performInsert(fields,invalidationKeys);
-  }
-  
-  public void deleteValue(String value)
-    throws ManifoldCFException
-  {
-    // Prepare the parameters
-    ArrayList params = new ArrayList();
-    params.add(value);
-    // Prepare the invalidation keys
-    StringSet invalidationKeys = new StringSet(new String[]{TABLE_CACHEKEY});
-    // Perform the delete
-    performDelete("WHERE "+valueField+"=?",params,invalidationKeys);
-  }
-  */  
-  
-  /** Construct a cache key for the given lookup key */
-  protected static String makeKeyCacheKey(String key)
-  {
-    return KEY_CACHEKEY_PREFIX + key;
+    params.add(new Long(currentTime));
+    performDelete("WHERE "+expirationTimeField+"<=?",params,null);
   }
   
 }
