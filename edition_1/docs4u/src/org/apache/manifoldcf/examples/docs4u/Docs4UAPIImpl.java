@@ -588,7 +588,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
     try
     {
       new File(docsFolder,docID).delete();
-      new File(docsFolder,docID).delete();
+      new File(docMetadataFolder,docID).delete();
       new File(docAllowedPermissionsFolder,docID).delete();
       new File(docDisallowedPermissionsFolder,docID).delete();
     }
