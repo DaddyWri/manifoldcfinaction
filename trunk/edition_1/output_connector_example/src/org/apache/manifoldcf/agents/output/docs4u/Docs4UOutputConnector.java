@@ -761,7 +761,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     try
     {
       // Try the database first
-      String userGroupID = userGroupLookupManager.lookupUserGroup(userGroupName);
+      String userGroupID = userGroupLookupManager.lookupUserGroup(rootDirectory,userGroupName);
       if (userGroupID != null)
         return userGroupID;
       // Ok, we have to look it up in Docs4U.
@@ -772,7 +772,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
         if (userGroupID == null)
           return null;
         // Save it in database for future reference
-        userGroupLookupManager.addUserGroup(userGroupName,userGroupID,currentTime + CACHE_LIFETIME);
+        userGroupLookupManager.addUserGroup(rootDirectory,userGroupName,userGroupID,currentTime + CACHE_LIFETIME);
         return userGroupID;
       }
       catch (InterruptedException e)

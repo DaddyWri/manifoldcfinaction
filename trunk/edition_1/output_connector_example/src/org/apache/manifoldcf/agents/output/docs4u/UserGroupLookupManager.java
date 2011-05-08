@@ -78,16 +78,18 @@ public class UserGroupLookupManager extends BaseTable
   }
 
   /** Given a user/group name, look up an id.
+  *@param repositoryRoot is the repository path.
   *@param userGroupName is the user or group name.
   *@return user/group ID, or null of the user/group name was not found.
   */
-  public String lookupUserGroup(String userGroupName)
+  public String lookupUserGroup(String repositoryRoot, String userGroupName)
     throws ManifoldCFException
   {
     ArrayList params = new ArrayList();
+    params.add(repositoryRoot);
     params.add(userGroupName);
     IResultSet results = performQuery("SELECT "+userGroupIDField+" FROM "+getTableName()+
-      " WHERE "+userGroupNameField+"=?",params,null,null);
+      " WHERE "+repositoryRootField+"=? AND "+userGroupNameField+"=?",params,null,null);
     if (results.getRowCount() == 0)
       return null;
     IResultRow row = results.getRow(0);
@@ -95,14 +97,16 @@ public class UserGroupLookupManager extends BaseTable
   }
   
   /** Add a user/group name and id to the table.
+  *@param repositoryRoot is the repository path.
   *@param userGroupName is the user/group name.
   *@param userGroupID is the user/group ID.
   *@param expirationTime is the time the record expires.
   */
-  public void addUserGroup(String userGroupName, String userGroupID, long expirationTime)
+  public void addUserGroup(String repositoryRoot, String userGroupName, String userGroupID, long expirationTime)
     throws ManifoldCFException
   {
     Map map = new HashMap();
+    map.put(repositoryRootField,repositoryRoot);
     map.put(userGroupNameField,userGroupName);
     map.put(userGroupIDField,userGroupID);
     map.put(expirationTimeField,new Long(expirationTime));

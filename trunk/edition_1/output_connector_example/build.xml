@@ -115,6 +115,16 @@
             <arg value="clarkkent"/>
             <arg value="1"/>
         </java>
+        <java dir="." classname="org.apache.manifoldcf.examples.docs4u.AddUserOrGroup" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <arg path="repository"/>
+            <arg value="DEAD_AUTHORITY"/>
+            <arg value="&#34;&#34;"/>
+        </java>
     </target>
     
     <target name="all" depends="jar"/>
