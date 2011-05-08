@@ -542,7 +542,7 @@ public class Docs4UAPIImpl implements Docs4UAPI
         return false;
       }
 
-      String[] metadataContent = readValues(new File(docsFolder,docID));
+      String[] metadataContent = readValues(new File(docMetadataFolder,docID));
       if (metadataContent == null)
         throw new D4UException("Could not find document metadata");
       getMetadataContent(docInfo,metadataContent);
