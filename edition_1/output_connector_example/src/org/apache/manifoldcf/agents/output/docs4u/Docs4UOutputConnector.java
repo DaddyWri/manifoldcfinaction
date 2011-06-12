@@ -122,6 +122,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   * The connector does not have to be connected for this method to be called.
   *@return the list.
   */
+  @Override
   public String[] getActivitiesList()
   {
     return new String[]{ACTIVITY_SAVE,ACTIVITY_DELETE};
@@ -132,6 +133,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   * It is called when the connector is registered.
   *@param threadContext is the current thread context.
   */
+  @Override
   public void install(IThreadContext threadContext)
     throws ManifoldCFException
   {
@@ -144,6 +146,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   * It is called when the connector is deregistered.
   *@param threadContext is the current thread context.
   */
+  @Override
   public void deinstall(IThreadContext threadContext)
     throws ManifoldCFException
   {
@@ -154,6 +157,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   /** Clear out any state information specific to a given thread.
   * This method is called when this object is returned to the connection pool.
   */
+  @Override
   public void clearThreadContext()
   {
     userGroupLookupManager = null;
@@ -164,6 +168,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   /** Attach to a new thread.
   *@param threadContext is the new thread context.
   */
+  @Override
   public void setThreadContext(IThreadContext threadContext)
     throws ManifoldCFException
   {
@@ -182,8 +187,9 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
+  @Override
   public void outputConfigurationHeader(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, ArrayList tabsArray)
+    ConfigParams parameters, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
@@ -217,6 +223,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabName is the current tab name.
   */
+  @Override
   public void outputConfigurationBody(IThreadContext threadContext, IHTTPOutput out,
     ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
@@ -261,6 +268,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@return null if all is well, or a string error message if there is an error that should prevent saving of the
   *   connection (and cause a redirection to an error page).
   */
+  @Override
   public String processConfigurationPost(IThreadContext threadContext, IPostParameters variableContext,
     ConfigParams parameters)
     throws ManifoldCFException
@@ -280,6 +288,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param out is the output to which any HTML should be sent.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   */
+  @Override
   public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
@@ -335,6 +344,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param configParameters is the set of configuration parameters, which
   * in this case describe the root directory.
   */
+  @Override
   public void connect(ConfigParams configParameters)
   {
     super.connect(configParameters);
@@ -345,6 +355,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   /** Close the connection.  Call this before discarding this instance of the
   * connector.
   */
+  @Override
   public void disconnect()
     throws ManifoldCFException
   {
@@ -356,6 +367,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   /** Test the connection.  Returns a string describing the connection integrity.
   *@return the connection's status as a displayable string.
   */
+  @Override
   public String check()
     throws ManifoldCFException
   {
@@ -386,6 +398,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   /** This method is periodically called for all connectors that are connected but not
   * in active use.
   */
+  @Override
   public void poll()
     throws ManifoldCFException
   {
@@ -396,22 +409,6 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     }
   }
 
-  /** Get the bin name strings for a document identifier.  The bin name describes the queue to which the
-  * document will be assigned for throttling purposes.  Throttling controls the rate at which items in a
-  * given queue are fetched; it does not say anything about the overall fetch rate, which may operate on
-  * multiple queues or bins.
-  * For example, if you implement a web crawler, a good choice of bin name would be the server name, since
-  * that is likely to correspond to a real resource that will need real throttle protection.
-  * The connector must be connected for this method to be called.
-  *@param documentIdentifier is the document identifier.
-  *@return the set of bin names.  If an empty array is returned, it is equivalent to there being no request
-  * rate throttling available for this identifier.
-  */
-  public String[] getBinNames(String documentIdentifier)
-  {
-    return new String[]{rootDirectory};
-  }
-  
   /** Request arbitrary connector information.
   * This method is called directly from the API in order to allow API users to perform any one of several
   * connector-specific queries.  These are usually used to create external UI's.  The connector will be
@@ -420,6 +417,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param command is the command, which is taken directly from the API request.
   *@return true if the resource is found, false if not.  In either case, output may be filled in.
   */
+  @Override
   public boolean requestInfo(Configuration output, String command)
     throws ManifoldCFException
   {
@@ -463,6 +461,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param mimeType is the mime type of the document.
   *@return true if the mime type is indexable by this connector.
   */
+  @Override
   public boolean checkMimeTypeIndexable(String mimeType)
     throws ManifoldCFException, ServiceInterruption
   {
@@ -475,6 +474,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param localFile is the local file to check.
   *@return true if the file is indexable.
   */
+  @Override
   public boolean checkDocumentIndexable(File localFile)
     throws ManifoldCFException, ServiceInterruption
   {
@@ -492,12 +492,13 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@return a string, of unlimited length, which uniquely describes output configuration and specification in such a way that if two such strings are equal,
   * the document will not need to be sent again to the output data store.
   */
+  @Override
   public String getOutputDescription(OutputSpecification spec)
     throws ManifoldCFException, ServiceInterruption
   {
     String urlMetadataName = "";
     String securityMap = "";
-    ArrayList metadataMappings = new ArrayList();
+    List<String> metadataMappings = new ArrayList<String>();
     
     int i = 0;
     while (i < spec.getChildCount())
@@ -512,14 +513,14 @@ public class Docs4UOutputConnector extends BaseOutputConnector
         String recordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
         String recordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
         String[] fixedList = new String[]{recordSource,recordTarget};
-        StringBuffer packBuffer = new StringBuffer();
+        StringBuilder packBuffer = new StringBuilder();
         packFixedList(packBuffer,fixedList,':');
         metadataMappings.add(packBuffer.toString());
       }
     }
     
     // Now, form the final string.
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     
     pack(sb,urlMetadataName,'+');
     pack(sb,securityMap,'+');
@@ -542,26 +543,27 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param activities is the handle to an object that the implementer of an output connector may use to perform operations, such as logging processing activity.
   *@return the document status (accepted or permanently rejected).
   */
+  @Override
   public int addOrReplaceDocument(String documentURI, String outputDescription,
     RepositoryDocument document, String authorityNameString, IOutputAddActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
     // First, unpack the output description.
     int index = 0;
-    StringBuffer urlMetadataNameBuffer = new StringBuffer();
-    StringBuffer securityMapBuffer = new StringBuffer();
-    ArrayList metadataMappings = new ArrayList();
+    StringBuilder urlMetadataNameBuffer = new StringBuilder();
+    StringBuilder securityMapBuffer = new StringBuilder();
+    List<String> metadataMappings = new ArrayList<String>();
 
     index = unpack(urlMetadataNameBuffer,outputDescription,index,'+');
     index = unpack(securityMapBuffer,outputDescription,index,'+');
     index = unpackList(metadataMappings,outputDescription,index,',');
     
     String urlMetadataName = urlMetadataNameBuffer.toString();
-    Map fieldMap = new HashMap();
+    Map<String,String> fieldMap = new HashMap<String,String>();
     int j = 0;
     while (j < metadataMappings.size())
     {
-      String metadataMapping = (String)metadataMappings.get(j++);
+      String metadataMapping = metadataMappings.get(j++);
       // Unpack
       String[] mappingData = new String[2];
       unpackFixedList(mappingData,metadataMapping,0,':');
@@ -625,25 +627,17 @@ public class Docs4UOutputConnector extends BaseOutputConnector
           
           // Next, map the metadata.  If this doesn't succeed, nothing is lost and we can still continue.
           docObject.setMetadata(urlMetadataName,new String[]{documentURI});
-          Iterator fields = document.getFields();
+          Iterator<String> fields = document.getFields();
           while (fields.hasNext())
           {
-            String field = (String)fields.next();
-            String mappedField = (String)fieldMap.get(field);
+            String field = fields.next();
+            String mappedField = fieldMap.get(field);
             if (mappedField != null)
             {
               if (Logging.ingest.isDebugEnabled())
                 Logging.ingest.debug("For document '"+documentURI+"', field '"+field+"' maps to target field '"+mappedField+"'");
               // We have a source field and a target field; copy the attribute
-              Object[] values = document.getField(field);
-              // We only handle string metadata at this time.
-              String[] stringValues = new String[values.length];
-              int k = 0;
-              while (k < stringValues.length)
-              {
-                stringValues[k] = (String)values[k];
-                k++;
-              }
+              String[] stringValues = document.getFieldAsStrings(field);
               docObject.setMetadata(mappedField,stringValues);
             }
             else
@@ -659,7 +653,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
           docObject.setData(document.getBinaryStream());
           
           // Next, look up the Docs4U identifier for the document.
-          Map lookupMap = new HashMap();
+          Map<String,String> lookupMap = new HashMap<String,String>();
           lookupMap.put(urlMetadataName,documentURI);
           D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
           String documentID;
@@ -671,6 +665,10 @@ public class Docs4UOutputConnector extends BaseOutputConnector
           else
             documentID = session.createDocument(docObject);
           return DOCUMENTSTATUS_ACCEPTED;
+        }
+        catch (IOException e)
+        {
+          throw new ManifoldCFException(e.getMessage(),e);
         }
         finally
         {
@@ -798,11 +796,12 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param outputDescription is the last description string that was constructed for this document by the getOutputDescription() method above.
   *@param activities is the handle to an object that the implementer of an output connector may use to perform operations, such as logging processing activity.
   */
+  @Override
   public void removeDocument(String documentURI, String outputDescription, IOutputRemoveActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
     // Unpack what we need from the output description
-    StringBuffer urlMetadataNameBuffer = new StringBuffer();
+    StringBuilder urlMetadataNameBuffer = new StringBuilder();
     unpack(urlMetadataNameBuffer,outputDescription,0,'+');
     String urlMetadataName = urlMetadataNameBuffer.toString();
 
@@ -817,7 +816,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       Docs4UAPI session = getSession();
       try
       {
-        Map lookupMap = new HashMap();
+        Map<String,String> lookupMap = new HashMap<String,String>();
         lookupMap.put(urlMetadataName,documentURI);
         D4UDocumentIterator iter = session.findDocuments(null,null,lookupMap);
         if (iter.hasNext())
@@ -858,6 +857,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   * is a good time to synchronize things.  It is called whenever a job is either completed or aborted.
   *@param activities is the handle to an object that the implementer of an output connector may use to perform operations, such as logging processing activity.
   */
+  @Override
   public void noteJobComplete(IOutputNotifyActivity activities)
     throws ManifoldCFException, ServiceInterruption
   {
@@ -886,7 +886,8 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param os is the current output specification for this job.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
-  public void outputSpecificationHeader(IHTTPOutput out, OutputSpecification os, ArrayList tabsArray)
+  @Override
+  public void outputSpecificationHeader(IHTTPOutput out, OutputSpecification os, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     // Add the tabs
@@ -1057,6 +1058,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param os is the current output specification for this job.
   *@param tabName is the current tab name.
   */
+  @Override
   public void outputSpecificationBody(IHTTPOutput out, OutputSpecification os, String tabName)
     throws ManifoldCFException, IOException
   {
@@ -1086,7 +1088,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       // Before we start, locate the current URL map attribute, if any.
       // Also, build a map of the currently used Docs4U attributes.
       String urlMetadataName = null;
-      Map usedAttributes = new HashMap();
+      Map<String,String> usedAttributes = new HashMap<String,String>();
       i = 0;
       while (i < os.getChildCount())
       {
@@ -1543,6 +1545,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param out is the output to which any HTML should be sent.
   *@param os is the current output specification for this job.
   */
+  @Override
   public void viewSpecification(IHTTPOutput out, OutputSpecification os)
     throws ManifoldCFException, IOException
   {
@@ -1671,115 +1674,6 @@ public class Docs4UOutputConnector extends BaseOutputConnector
 "    </td>\n"+
 "  </tr>\n"
     );
-  }
-
-  // Protected pack/unpack methods for version strings
-  
-  /** Stuffer for packing a single string with an end delimiter */
-  protected static void pack(StringBuffer output, String value, char delimiter)
-  {
-    int i = 0;
-    while (i < value.length())
-    {
-      char x = value.charAt(i++);
-      if (x == '\\' || x == delimiter)
-        output.append('\\');
-      output.append(x);
-    }
-    output.append(delimiter);
-  }
-
-  /** Unstuffer for the above. */
-  protected static int unpack(StringBuffer sb, String value, int startPosition, char delimiter)
-  {
-    while (startPosition < value.length())
-    {
-      char x = value.charAt(startPosition++);
-      if (x == '\\')
-      {
-        if (startPosition < value.length())
-          x = value.charAt(startPosition++);
-      }
-      else if (x == delimiter)
-        break;
-      sb.append(x);
-    }
-    return startPosition;
-  }
-
-  /** Stuffer for packing lists of fixed length */
-  protected static void packFixedList(StringBuffer output, String[] values, char delimiter)
-  {
-    int i = 0;
-    while (i < values.length)
-    {
-      pack(output,values[i++],delimiter);
-    }
-  }
-
-  /** Unstuffer for unpacking lists of fixed length */
-  protected static int unpackFixedList(String[] output, String value, int startPosition, char delimiter)
-  {
-    StringBuffer sb = new StringBuffer();
-    int i = 0;
-    while (i < output.length)
-    {
-      sb.setLength(0);
-      startPosition = unpack(sb,value,startPosition,delimiter);
-      output[i++] = sb.toString();
-    }
-    return startPosition;
-  }
-
-  /** Stuffer for packing lists of variable length */
-  protected static void packList(StringBuffer output, ArrayList values, char delimiter)
-  {
-    pack(output,Integer.toString(values.size()),delimiter);
-    int i = 0;
-    while (i < values.size())
-    {
-      pack(output,values.get(i++).toString(),delimiter);
-    }
-  }
-
-  /** Another stuffer for packing lists of variable length */
-  protected static void packList(StringBuffer output, String[] values, char delimiter)
-  {
-    pack(output,Integer.toString(values.length),delimiter);
-    int i = 0;
-    while (i < values.length)
-    {
-      pack(output,values[i++],delimiter);
-    }
-  }
-
-  /** Unstuffer for unpacking lists of variable length.
-  *@param output is the array to write the unpacked result into.
-  *@param value is the value to unpack.
-  *@param startPosition is the place to start the unpack.
-  *@param delimiter is the character to use between values.
-  *@return the next position beyond the end of the list.
-  */
-  protected static int unpackList(ArrayList output, String value, int startPosition, char delimiter)
-  {
-    StringBuffer sb = new StringBuffer();
-    startPosition = unpack(sb,value,startPosition,delimiter);
-    try
-    {
-      int count = Integer.parseInt(sb.toString());
-      int i = 0;
-      while (i < count)
-      {
-        sb.setLength(0);
-        startPosition = unpack(sb,value,startPosition,delimiter);
-        output.add(sb.toString());
-        i++;
-      }
-    }
-    catch (NumberFormatException e)
-    {
-    }
-    return startPosition;
   }
 
   /** Calculate a lock name given a user/group name.
