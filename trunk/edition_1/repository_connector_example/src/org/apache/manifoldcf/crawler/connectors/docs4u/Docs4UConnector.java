@@ -111,6 +111,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * for this method to be called.
   *@return the model type value.
   */
+  @Override
   public int getConnectorModel()
   {
     return MODEL_ADD_CHANGE;
@@ -120,6 +121,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not have to be connected for this method to be called.
   *@return the list.
   */
+  @Override
   public String[] getActivitiesList()
   {
     return new String[]{ACTIVITY_FETCH};
@@ -129,6 +131,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not need to be connected for this method to be called.
   *@return the list.
   */
+  @Override
   public String[] getRelationshipTypes()
   {
     return new String[0];
@@ -144,8 +147,9 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
+  @Override
   public void outputConfigurationHeader(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, ArrayList tabsArray)
+    ConfigParams parameters, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
@@ -179,6 +183,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabName is the current tab name.
   */
+  @Override
   public void outputConfigurationBody(IThreadContext threadContext, IHTTPOutput out,
     ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
@@ -223,6 +228,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@return null if all is well, or a string error message if there is an error that should prevent saving of the
   *   connection (and cause a redirection to an error page).
   */
+  @Override
   public String processConfigurationPost(IThreadContext threadContext, IPostParameters variableContext,
     ConfigParams parameters)
     throws ManifoldCFException
@@ -242,6 +248,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param out is the output to which any HTML should be sent.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   */
+  @Override
   public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
@@ -297,6 +304,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param configParameters is the set of configuration parameters, which
   * in this case describe the root directory.
   */
+  @Override
   public void connect(ConfigParams configParameters)
   {
     super.connect(configParameters);
@@ -307,6 +315,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   /** Close the connection.  Call this before discarding this instance of the
   * repository connector.
   */
+  @Override
   public void disconnect()
     throws ManifoldCFException
   {
@@ -318,6 +327,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   /** Test the connection.  Returns a string describing the connection integrity.
   *@return the connection's status as a displayable string.
   */
+  @Override
   public String check()
     throws ManifoldCFException
   {
@@ -348,6 +358,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   /** This method is periodically called for all connectors that are connected but not
   * in active use.
   */
+  @Override
   public void poll()
     throws ManifoldCFException
   {
@@ -369,6 +380,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@return the set of bin names.  If an empty array is returned, it is equivalent to there being no request
   * rate throttling available for this identifier.
   */
+  @Override
   public String[] getBinNames(String documentIdentifier)
   {
     return new String[]{rootDirectory};
@@ -382,6 +394,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param command is the command, which is taken directly from the API request.
   *@return true if the resource is found, false if not.  In either case, output may be filled in.
   */
+  @Override
   public boolean requestInfo(Configuration output, String command)
     throws ManifoldCFException
   {
@@ -447,6 +460,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param endTime is the end of the time range to consider, exclusive.
   *@param jobMode is an integer describing how the job is being run, whether continuous or once-only.
   */
+  @Override
   public void addSeedDocuments(ISeedingActivity activities, DocumentSpecification spec,
     long startTime, long endTime, int jobMode)
     throws ManifoldCFException, ServiceInterruption
@@ -510,13 +524,14 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * Empty version strings indicate that there is no versioning ability for the corresponding document, and the document
   * will always be processed.
   */
+  @Override
   public String[] getDocumentVersions(String[] documentIdentifiers, String[] oldVersions, IVersionActivity activities,
     DocumentSpecification spec, int jobMode, boolean usesDefaultAuthority)
     throws ManifoldCFException, ServiceInterruption
   {
     // First, the metadata specified will affect the indexing of the document.
     // So, we need to put the metadata specification as it currently exists into the version string.
-    List metadataNames = new ArrayList();
+    List<String> metadataNames = new ArrayList<String>();
     int i = 0;
     while (i < spec.getChildCount())
     {
@@ -525,7 +540,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
         metadataNames.add(sn.getAttributeValue(ATTRIBUTE_NAME));
     }
     // Sort the list of metadata names, since it will be used for a version string
-    String[] namesToVersion = (String[])metadataNames.toArray(new String[0]);
+    String[] namesToVersion = metadataNames.toArray(new String[0]);
     java.util.Arrays.sort(namesToVersion);
     
     // Get the current docs4u session
@@ -546,7 +561,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
           rval[i] = null;
         else
         {
-          StringBuffer versionBuffer = new StringBuffer();
+          StringBuilder versionBuffer = new StringBuilder();
           // Pack the metadata names.
           packList(versionBuffer,namesToVersion,'+');
           // Add the updated time.
@@ -583,6 +598,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * should only find other references, and should not actually call the ingestion methods.
   *@param jobMode is an integer describing how the job is being run, whether continuous or once-only.
   */
+  @Override
   public void processDocuments(String[] documentIdentifiers, String[] versions, IProcessActivity activities,
     DocumentSpecification spec, boolean[] scanOnly, int jobMode)
     throws ManifoldCFException, ServiceInterruption
@@ -635,12 +651,12 @@ public class Docs4UConnector extends BaseRepositoryConnector
                   rd.setBinary(is,dataSize);
                   
                   // Unpack metadata info
-                  ArrayList metadataNames = new ArrayList();
+                  List<String> metadataNames = new ArrayList<String>();
                   unpackList(metadataNames,version,0,'+');
                   int j = 0;
                   while (j < metadataNames.size())
                   {
-                    String metadataName = (String)metadataNames.get(j++);
+                    String metadataName = metadataNames.get(j++);
                     // Get the value from the doc info object
                     String[] metadataValues = docData.getMetadata(metadataName);
                     if (metadataValues != null)
@@ -718,6 +734,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param documentIdentifiers is the set of document identifiers.
   *@param versions is the corresponding set of version identifiers (individual identifiers may be null).
   */
+  @Override
   public void releaseDocumentVersions(String[] documentIdentifiers, String[] versions)
     throws ManifoldCFException
   {
@@ -728,6 +745,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not need to be connected for this method to be called.
   *@return the maximum number. 0 indicates "unlimited".
   */
+  @Override
   public int getMaxDocumentRequest()
   {
     return 1;
@@ -755,7 +773,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param ds is the current document specification for this job.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
-  public void outputSpecificationHeader(IHTTPOutput out, DocumentSpecification ds, ArrayList tabsArray)
+  @Override
+  public void outputSpecificationHeader(IHTTPOutput out, DocumentSpecification ds, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     // Add the tabs
@@ -877,6 +896,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param ds is the current document specification for this job.
   *@param tabName is the current tab name.
   */
+  @Override
   public void outputSpecificationBody(IHTTPOutput out, DocumentSpecification ds, String tabName)
     throws ManifoldCFException, IOException
   {
@@ -1103,7 +1123,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
         String[] matchNames = getMetadataNames();
         // Loop through the current metadata selection and build a hash map
         i = 0;
-        Map currentSelections = new HashMap();
+        Map<String,String> currentSelections = new HashMap<String,String>();
         while (i < ds.getChildCount())
         {
           SpecificationNode sn = ds.getChild(i++);
@@ -1175,6 +1195,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@return null if all is well, or a string error message if there is an error that should prevent saving of
   * the job (and cause a redirection to an error page).
   */
+  @Override
   public String processSpecificationPost(IPostParameters variableContext, DocumentSpecification ds)
     throws ManifoldCFException
   {
@@ -1304,6 +1325,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *@param out is the output to which any HTML should be sent.
   *@param ds is the current document specification for this job.
   */
+  @Override
   public void viewSpecification(IHTTPOutput out, DocumentSpecification ds)
     throws ManifoldCFException, IOException
   {
@@ -1402,115 +1424,6 @@ public class Docs4UConnector extends BaseRepositoryConnector
 "  </tr>\n"
     );
     
-  }
-
-  // Protected pack/unpack methods for version strings
-  
-  /** Stuffer for packing a single string with an end delimiter */
-  protected static void pack(StringBuffer output, String value, char delimiter)
-  {
-    int i = 0;
-    while (i < value.length())
-    {
-      char x = value.charAt(i++);
-      if (x == '\\' || x == delimiter)
-        output.append('\\');
-      output.append(x);
-    }
-    output.append(delimiter);
-  }
-
-  /** Unstuffer for the above. */
-  protected static int unpack(StringBuffer sb, String value, int startPosition, char delimiter)
-  {
-    while (startPosition < value.length())
-    {
-      char x = value.charAt(startPosition++);
-      if (x == '\\')
-      {
-        if (startPosition < value.length())
-          x = value.charAt(startPosition++);
-      }
-      else if (x == delimiter)
-        break;
-      sb.append(x);
-    }
-    return startPosition;
-  }
-
-  /** Stuffer for packing lists of fixed length */
-  protected static void packFixedList(StringBuffer output, String[] values, char delimiter)
-  {
-    int i = 0;
-    while (i < values.length)
-    {
-      pack(output,values[i++],delimiter);
-    }
-  }
-
-  /** Unstuffer for unpacking lists of fixed length */
-  protected static int unpackFixedList(String[] output, String value, int startPosition, char delimiter)
-  {
-    StringBuffer sb = new StringBuffer();
-    int i = 0;
-    while (i < output.length)
-    {
-      sb.setLength(0);
-      startPosition = unpack(sb,value,startPosition,delimiter);
-      output[i++] = sb.toString();
-    }
-    return startPosition;
-  }
-
-  /** Stuffer for packing lists of variable length */
-  protected static void packList(StringBuffer output, ArrayList values, char delimiter)
-  {
-    pack(output,Integer.toString(values.size()),delimiter);
-    int i = 0;
-    while (i < values.size())
-    {
-      pack(output,values.get(i++).toString(),delimiter);
-    }
-  }
-
-  /** Another stuffer for packing lists of variable length */
-  protected static void packList(StringBuffer output, String[] values, char delimiter)
-  {
-    pack(output,Integer.toString(values.length),delimiter);
-    int i = 0;
-    while (i < values.length)
-    {
-      pack(output,values[i++],delimiter);
-    }
-  }
-
-  /** Unstuffer for unpacking lists of variable length.
-  *@param output is the array to write the unpacked result into.
-  *@param value is the value to unpack.
-  *@param startPosition is the place to start the unpack.
-  *@param delimiter is the character to use between values.
-  *@return the next position beyond the end of the list.
-  */
-  protected static int unpackList(ArrayList output, String value, int startPosition, char delimiter)
-  {
-    StringBuffer sb = new StringBuffer();
-    startPosition = unpack(sb,value,startPosition,delimiter);
-    try
-    {
-      int count = Integer.parseInt(sb.toString());
-      int i = 0;
-      while (i < count)
-      {
-        sb.setLength(0);
-        startPosition = unpack(sb,value,startPosition,delimiter);
-        output.add(sb.toString());
-        i++;
-      }
-    }
-    catch (NumberFormatException e)
-    {
-    }
-    return startPosition;
   }
 
   // Protected UI support methods

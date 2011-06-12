@@ -24,7 +24,7 @@ import org.apache.manifoldcf.authorities.interfaces.*;
 // Utility includes
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
+import java.util.List;
 
 // This is where we get pull-agent system loggers
 import org.apache.manifoldcf.authorities.system.Logging;
@@ -99,6 +99,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
 
   /** Set thread context.
   */
+  @Override
   public void setThreadContext(IThreadContext tc)
     throws ManifoldCFException
   {
@@ -108,6 +109,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   
   /** Clear thread context.
   */
+  @Override
   public void clearThreadContext()
   {
     super.clearThreadContext();
@@ -124,8 +126,9 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
+  @Override
   public void outputConfigurationHeader(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, ArrayList tabsArray)
+    ConfigParams parameters, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
@@ -178,6 +181,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabName is the current tab name.
   */
+  @Override
   public void outputConfigurationBody(IThreadContext threadContext, IHTTPOutput out,
     ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
@@ -260,6 +264,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@return null if all is well, or a string error message if there is an error that should prevent saving of the
   *   connection (and cause a redirection to an error page).
   */
+  @Override
   public String processConfigurationPost(IThreadContext threadContext, IPostParameters variableContext,
     ConfigParams parameters)
     throws ManifoldCFException
@@ -288,6 +293,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@param out is the output to which any HTML should be sent.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   */
+  @Override
   public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
@@ -351,6 +357,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@param configParameters is the set of configuration parameters, which
   * in this case describe the root directory.
   */
+  @Override
   public void connect(ConfigParams configParameters)
   {
     super.connect(configParameters);
@@ -362,6 +369,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   /** Close the connection.  Call this before discarding this instance of the
   * repository connector.
   */
+  @Override
   public void disconnect()
     throws ManifoldCFException
   {
@@ -374,6 +382,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   /** Test the connection.  Returns a string describing the connection integrity.
   *@return the connection's status as a displayable string.
   */
+  @Override
   public String check()
     throws ManifoldCFException
   {
@@ -396,6 +405,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   /** This method is periodically called for all connectors that are connected but not
   * in active use.
   */
+  @Override
   public void poll()
     throws ManifoldCFException
   {
@@ -411,6 +421,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@return the response tokens (according to the current authority).
   * (Should throws an exception only when a condition cannot be properly described within the authorization response object.)
   */
+  @Override
   public AuthorizationResponse getAuthorizationResponse(String userName)
     throws ManifoldCFException
   {
@@ -504,6 +515,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   *@param userName is the user name or identifier.
   *@return the default response tokens, presuming that the connect method fails.
   */
+  @Override
   public AuthorizationResponse getDefaultAuthorizationResponse(String userName)
   {
     return unreachableResponse;
