@@ -58,7 +58,7 @@ public class UserGroupLookupManager extends BaseTable
     throws ManifoldCFException
   {
     // Create the table
-    Map columnMap = new HashMap();
+    Map<String,ColumnDescription> columnMap = new HashMap<String,ColumnDescription>();
     columnMap.put(repositoryRootField,new ColumnDescription("VARCHAR(255)",false,false,null,null,false));
     columnMap.put(userGroupNameField,new ColumnDescription("VARCHAR(255)",false,false,null,null,false));
     columnMap.put(userGroupIDField,new ColumnDescription("VARCHAR(32)",false,false,null,null,false));
@@ -85,7 +85,7 @@ public class UserGroupLookupManager extends BaseTable
   public String lookupUserGroup(String repositoryRoot, String userGroupName)
     throws ManifoldCFException
   {
-    ArrayList params = new ArrayList();
+    List params = new ArrayList();
     params.add(repositoryRoot);
     params.add(userGroupName);
     IResultSet results = performQuery("SELECT "+userGroupIDField+" FROM "+getTableName()+
@@ -105,7 +105,7 @@ public class UserGroupLookupManager extends BaseTable
   public void addUserGroup(String repositoryRoot, String userGroupName, String userGroupID, long expirationTime)
     throws ManifoldCFException
   {
-    Map map = new HashMap();
+    Map<String,Object> map = new HashMap<String,Object>();
     map.put(repositoryRootField,repositoryRoot);
     map.put(userGroupNameField,userGroupName);
     map.put(userGroupIDField,userGroupID);
@@ -119,7 +119,7 @@ public class UserGroupLookupManager extends BaseTable
   public void cleanupExpiredRecords(long currentTime)
     throws ManifoldCFException
   {
-    ArrayList params = new ArrayList();
+    List params = new ArrayList();
     params.add(new Long(currentTime));
     performDelete("WHERE "+expirationTimeField+"<=?",params,null);
   }
