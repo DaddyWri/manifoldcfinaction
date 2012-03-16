@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.Set;
+import java.util.HashSet;
 
 // This is where we get agent system loggers
 import org.apache.manifoldcf.agents.system.Logging;
@@ -898,285 +900,88 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     throws ManifoldCFException, IOException
   {
     // Do the "Metadata Mapping" tab
-    outputMetadataMappingTab(out,os,tabName);
+    outputMetadataMappingTab(out,locale,os,tabName);
     // Do the "Access Mapping" tab
-    outputAccessMappingTab(out,os,tabName);
+    outputAccessMappingTab(out,locale,os,tabName);
   }
   
   /** Take care of "Metadata Mapping" tab.
   */
-  protected void outputMetadataMappingTab(IHTTPOutput out, OutputSpecification os, String tabName)
+  protected void outputMetadataMappingTab(IHTTPOutput out, Locale locale, OutputSpecification os, String tabName)
     throws ManifoldCFException, IOException
   {
-    int i;
-    int k;
-    
-    
-    if (tabName.equals("Docs4U Metadata"))
-    {
-      // Output the outer table, which is just a standard 2-column table.
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"
-      );
-
-      // Before we start, locate the current URL map attribute, if any.
-      // Also, build a map of the currently used Docs4U attributes.
-      String urlMetadataName = null;
-      Map<String,String> usedAttributes = new HashMap<String,String>();
-      i = 0;
-      while (i < os.getChildCount())
-      {
-        SpecificationNode sn = os.getChild(i++);
-        if (sn.getType().equals(NODE_URL_METADATA_NAME))
-          urlMetadataName = sn.getAttributeValue(ATTRIBUTE_VALUE);
-        else if (sn.getType().equals(NODE_METADATA_MAP))
-        {
-          String target =sn.getAttributeValue(ATTRIBUTE_TARGET);
-          usedAttributes.put(target,target);
-        }
-      }
-      
-      // Output the URL field mapping, by itself.
-      // First, we must obtain the attribute names from the repository.
-      try
-      {
-        String[] matchNames = getMetadataNames();
-        
-        // Success!  Now display the URL attribute, with a pruned selection pulldown.
-        out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Docs4U URL attribute:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      <select name=\"ocurlmetadataname\">\n"+
-"        <option value=\"\""+((urlMetadataName==null)?" selected=\"true\"":"")+
-  ">-- Select URL metadata attribute --</option>\n"
-        );
-        
-        // Write the pruned options.
-        k = 0;
-        while (k < matchNames.length)
-        {
-          String option = matchNames[k++];
-          if (usedAttributes.get(option) == null)
-          {
-            boolean isMe = urlMetadataName != null && option.equals(urlMetadataName);
-            out.print(
-"        <option value=\""+Encoder.attributeEscape(option)+"\""+(isMe?" selected=\"true\"":"")+">"+
-  Encoder.bodyEscape(option)+"</option>\n"
-            );
-          }
-        }
-
-        // Close off the row
-        out.print(
-"      </select>\n"+
-"    </td>\n"+
-"  </tr>"
-        );
-      }
-      catch (ManifoldCFException e)
-      {
-        // If there was an error, display it as the entire row contents
-        out.print(
-"        <tr class=\"formrow\"><td class=\"message\" colspan=\"2\">Error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-      catch (ServiceInterruption e)
-      {
-        out.print(
-"        <tr class=\"formrow\"><td class=\"message\" colspan=\"2\">Transient error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-
-      // Output the general mapping table.
-      out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Mapping:</nobr></td>\n"+
-"    <td class=\"boxcell\">\n"+
-"      <table class=\"formtable\">\n"+
-"        <tr class=\"formheaderrow\">\n"+
-"          <td class=\"formcolumnheader\"></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Source metadata name</nobr></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Docs4U metadata name</nobr></td>\n"+
-"        </tr>\n"
-      );
-
-      // Look for mappings in the output specification, and output them when found.
-      i = 0;
-      k = 0;
-      while (i < os.getChildCount())
-      {
-        SpecificationNode sn = os.getChild(i++);
-        // Look for METADATA_MAP nodes in the output specification
-        if (sn.getType().equals(NODE_METADATA_MAP))
-        {
-          // Pull the source and target metadata names from the node
-          String metadataRecordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
-          String metadataRecordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
-          // We'll need a suffix for each row, used for form element names and
-          // for anchor names.
-          String metadataRecordSuffix = "_"+Integer.toString(k);
-          // Output the row.
-          out.print(
-"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <input type=\"hidden\" name=\"ocmetadataop"+metadataRecordSuffix+"\" value=\"\"/>\n"+
-"            <input type=\"hidden\" name=\"ocmetadatasource"+metadataRecordSuffix+"\" value=\""+
-  Encoder.attributeEscape(metadataRecordSource)+"\"/>\n"+
-"            <input type=\"hidden\" name=\"ocmetadatatarget"+metadataRecordSuffix+"\" value=\""+
-  Encoder.attributeEscape(metadataRecordTarget)+"\"/>\n"+
-"            <a name=\""+"metadata_"+Integer.toString(k)+"\">\n"+
-"              <input type=\"button\" value=\"Delete\" onClick='Javascript:ocMetadataDelete(\""+
-  Integer.toString(k)+"\")' alt=\"Delete mapping #"+Integer.toString(k)+"\"/>\n"+
-"            </a>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(metadataRecordSource)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(metadataRecordTarget)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"        </tr>\n"
-          );
-
-          // Increment the row counter
-          k++;
-        }
-      }
-      
-      if (k == 0)
-      {
-        // There are no records yet.  Print an empty record summary
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">No mappings specified</td></tr>\n"
-        );
-      }
-      
-      // Output a separator
-      out.print(
-"        <tr class=\"formrow\"><td class=\"formseparator\" colspan=\"3\"><hr/></td></tr>\n"
-      );
-
-      // Output the Add button, in its own table row
-      
-      // We need a try/catch block because an exception can be thrown when we query the
-      // repository.
-      try
-      {
-        String[] matchNames = getMetadataNames();
-        // Success!  Now output the row content
-        out.print(
-"        <tr class=\"formrow\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              <a name=\"find_"+Integer.toString(k)+"\">\n"+
-"                <input type=\"button\" value=\"Add\" onClick='Javascript:ocMetadataAdd(\""+
-  Integer.toString(k+1)+"\")' alt=\"Add new mapping\"/>\n"+
-"                <input type=\"hidden\" name=\"ocmetadatacount\" value=\""+Integer.toString(k)+"\"/>\n"+
-"                <input type=\"hidden\" name=\"ocmetadataop\" value=\"\"/>\n"+
-"              </a>\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              <input type=\"text\" size=\"32\" name=\"ocmetadatasource\" value=\"\"/>\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <select name=\"ocmetadatatarget\">\n"+
-"              <option value=\"\" selected=\"true\">--Select target attribute name --</option>\n"
-        );
-      
-        k = 0;
-        while (k < matchNames.length)
-        {
-          String metadataTargetName = matchNames[k++];
-          if (usedAttributes.get(metadataTargetName) == null)
-          {
-            out.print(
-"              <option value=\""+Encoder.attributeEscape(metadataTargetName)+"\">"+
-  Encoder.bodyEscape(metadataTargetName)+"</option>\n"
-            );
-          }
-        }
-        
-        out.print(
-"            </select>\n"+
-"          </td>\n"+
-"        </tr>\n"
-        );
-      }
-      catch (ManifoldCFException e)
-      {
-        // If there was an error, display it as the entire row contents
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-      catch (ServiceInterruption e)
-      {
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Transient error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-
-      // Close off general mapping table.
-      out.print(
-"      </table>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      // Emit hiddens.
-      // Loop through all nodes and emit the ones we recognize
-      k = 0;
-      i = 0;
-      String urlMetadataName = "";
-      while (i < os.getChildCount())
-      {
-        SpecificationNode sn = os.getChild(i++);
-        if (sn.getType().equals(NODE_URL_METADATA_NAME))
-          // Get the value
-          urlMetadataName = sn.getAttributeValue(ATTRIBUTE_VALUE);
-        else if (sn.getType().equals(NODE_METADATA_MAP))
-        {
-          String metadataRecordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
-          String metadataRecordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
-          String metadataRecordSuffix = "_"+Integer.toString(k);
-          // Output the row hiddens
-          out.print(
-"<input type=\"hidden\" name=\"ocmetadatasource"+metadataRecordSuffix+
-  "\" value=\""+Encoder.attributeEscape(metadataRecordSource)+"\"/>\n"+
-"<input type=\"hidden\" name=\"ocmetadatatarget"+metadataRecordSuffix+
-  "\" value=\""+Encoder.attributeEscape(metadataRecordTarget)+"\"/>\n"
-          );
-          k++;
-        }
-      }
-      // Output the count of rows and the url metadata name
-      out.print(
-"<input type=\"hidden\" name=\"ocmetadatacount\" value=\""+Integer.toString(k)+"\"/>\n"+
-"<input type=\"hidden\" name=\"ocurlmetadataname\" value=\""+Encoder.attributeEscape(urlMetadataName)+"\"/>\n"
-      );
-    }
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInMetadataMappingTab(velocityContext,os);
+    fillInMetadataMappingTabSelection(velocityContext);
+    Messages.outputResourceWithVelocity(out, locale, "Specification_Docs4U_Metadata.html", velocityContext);
   }
   
+  /** Fill in data for Metadata display.
+  */
+  protected static void fillInMetadataMappingTab(
+    Map<String,Object> velocityContext, OutputSpecification os)
+  {
+    // Scan the output specification, and convert to things Velocity understands
+    String urlMetadataName = "";
+    List<MappingRow> mappings = new ArrayList<MappingRow>();
+    Set<String> usedAttributes = new HashSet<String>();
+    int i = 0;
+    while (i < os.getChildCount())
+    {
+      SpecificationNode sn = os.getChild(i++);
+      if (sn.getType().equals(NODE_URL_METADATA_NAME))
+        urlMetadataName = sn.getAttributeValue(ATTRIBUTE_VALUE);
+      else if (sn.getType().equals(NODE_METADATA_MAP))
+      {
+        String metadataRecordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
+        String metadataRecordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
+        usedAttributes.add(metadataRecordTarget);
+        mappings.add(new MappingRow(metadataRecordSource,metadataRecordTarget));
+      }
+    }
+    velocityContext.put("urlmetadataname",urlMetadataName);
+    velocityContext.put("metadatarecords",mappings);
+    velocityContext.put("usedattributes",usedAttributes);
+  }
+
+  /** Fill in data for Metadata selection.
+  */
+  protected void fillInMetadataMappingTabSelection(
+    Map<String,Object> velocityContext)
+  {
+    try
+    {
+      String[] matchNames = getMetadataNames();
+      velocityContext.put("urlmetadataattributes",matchNames);
+      velocityContext.put("error","");
+    }
+    catch (ManifoldCFException e)
+    {
+      velocityContext.put("error","Error: "+e.getMessage());
+    }
+    catch (ServiceInterruption e)
+    {
+      velocityContext.put("error","Transient error: "+e.getMessage());
+    }
+
+  }
+
   /** Take care of "Access Mapping" tab.
   */
-  protected void outputAccessMappingTab(IHTTPOutput out, OutputSpecification os, String tabName)
+  protected void outputAccessMappingTab(IHTTPOutput out, Locale locale, OutputSpecification os, String tabName)
     throws ManifoldCFException, IOException
+  {
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInAccessMappingTab(velocityContext,os);
+    Messages.outputResourceWithVelocity(out, locale, "Specification_Docs4U_Security.html", velocityContext);
+  }
+
+  /** Fill in data for "Security" tab.
+  */
+  protected static void fillInAccessMappingTab(Map<String,Object> velocityContext,
+    OutputSpecification os)
   {
     int i;
     
@@ -1196,36 +1001,10 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     }
     String regexp = mm.getMatchString(0);
     String translation = mm.getReplaceString(0);
-    
-    if (tabName.equals("Docs4U Security"))
-    {
-      // Output the outer table, which is just a standard 2-column table.
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Access token mapping:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      <nobr>\n"+
-"         <input type=\"text\" name=\"ocsecurityregexp\" value=\""+Encoder.attributeEscape(regexp)+"\"/>\n"+
-"         ==&gt;\n"+
-"         <input type=\"text\" name=\"ocsecuritytranslation\" value=\""+Encoder.attributeEscape(translation)+"\"/>\n"+
-"      </nobr>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      // Output hiddens for the production
-      out.print(
-"<input type=\"hidden\" name=\"ocsecurityregexp\" value=\""+Encoder.attributeEscape(regexp)+"\"/>\n"+
-"<input type=\"hidden\" name=\"ocsecuritytranslation\" value=\""+Encoder.attributeEscape(translation)+"\"/>\n"
-      );
-    }
+    velocityContext.put("regexp",regexp);
+    velocityContext.put("translation",translation);
   }
-
+  
   /** Process a specification post.
   * This method is called at the start of job's edit or view page, whenever there is a possibility that form
   * data for a connection has been posted.  Its purpose is to gather form information and modify the
@@ -1381,134 +1160,13 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   *@param os is the current output specification for this job.
   */
   @Override
-  public void viewSpecification(IHTTPOutput out, OutputSpecification os)
+  public void viewSpecification(IHTTPOutput out, Locale locale, OutputSpecification os)
     throws ManifoldCFException, IOException
   {
-    out.print(
-"<table class=\"displaytable\">\n"
-    );
-    viewMetadataMappingTab(out,os);
-    viewAccessMappingTab(out,os);
-    out.print(
-"</table>\n"
-    );
-  }
-
-  /** View the "Metadata Mapping" tab contents
-  */
-  protected void viewMetadataMappingTab(IHTTPOutput out, OutputSpecification os)
-    throws ManifoldCFException, IOException
-  {
-    int i;
-    int k;
-
-    out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Docs4U URL attribute:</nobr></td>\n"+
-"    <td class=\"value\">\n"
-    );
-
-    String urlMetadataName = null;
-    i = 0;
-    while (i < os.getChildCount())
-    {
-      SpecificationNode sn = os.getChild(i++);
-      if (sn.getType().equals(NODE_URL_METADATA_NAME))
-        urlMetadataName = sn.getAttributeValue(ATTRIBUTE_VALUE);
-    }
-    
-    out.print(
-"      <nobr>"+Encoder.bodyEscape(urlMetadataName)+"</nobr>\n"
-    );
-    
-    out.print(
-"    </td>\n"+
-"  </tr>\n"
-    );
-
-    out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Mappings:</nobr></td>\n"+
-"    <td class=\"boxcell\">\n"+
-"      <table class=\"formtable\">\n"+
-"        <tr class=\"formheaderrow\">\n"+
-"          <td class=\"formcolumnheader\"><nobr>Source attribute</nobr></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Docs4U attribute</nobr></td>\n"+
-"        </tr>\n"
-    );
-    
-    i = 0;
-    k = 0;
-    while (i < os.getChildCount())
-    {
-      SpecificationNode sn = os.getChild(i++);
-      if (sn.getType().equals(NODE_METADATA_MAP))
-      {
-        String metadataRecordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
-        String metadataRecordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
-        out.print(
-"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(metadataRecordSource)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(metadataRecordTarget)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"        </tr>\n"
-        );
-        k++;
-      }
-    }
-    
-    out.print(
-"      </table>\n"+
-"    </td>\n"+
-"  </tr>\n"
-    );
-
-  }
-
-  /** View the "Access Mapping" tab contents
-  */
-  protected void viewAccessMappingTab(IHTTPOutput out, OutputSpecification os)
-    throws ManifoldCFException, IOException
-  {
-    int i;
-  
-    out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Docs4U security mapping:</nobr></td>\n"+
-"    <td class=\"value\">\n"
-    );
-
-    MatchMap mm = new MatchMap();
-    mm.appendMatchPair("(.*)","$(1)");
-
-    i = 0;
-    while (i < os.getChildCount())
-    {
-      SpecificationNode sn = os.getChild(i++);
-      if (sn.getType().equals(NODE_SECURITY_MAP))
-      {
-        String mappingString = sn.getAttributeValue(ATTRIBUTE_VALUE);
-        mm = new MatchMap(mappingString);
-      }
-    }
-    String regexp = mm.getMatchString(0);
-    String translation = mm.getReplaceString(0);
-    
-    out.print(
-"      <nobr>"+Encoder.bodyEscape(regexp)+" ==&gt; "+Encoder.bodyEscape(translation)+"</nobr>\n"
-    );
-    
-    out.print(
-"    </td>\n"+
-"  </tr>\n"
-    );
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    fillInMetadataMappingTab(velocityContext,os);
+    fillInAccessMappingTab(velocityContext,os);
+    Messages.outputResourceWithVelocity(out, locale, "SpecificationView.html", velocityContext);
   }
 
   /** Calculate a lock name given a user/group name.
@@ -1542,6 +1200,39 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     {
       throw new ManifoldCFException(e.getMessage(),e);
     }
+  }
+  
+  
+  /** Nested class to represent a row in source/target mapping table.
+  * This is used to communicate mappings to Velocity in a manner it can
+  * make use of.
+  */
+  protected static class MappingRow
+  {
+    protected String source;
+    protected String target;
+    
+    /** Constructor. */
+    public MappingRow(String source, String target)
+    {
+      this.source = source;
+      this.target = target;
+    }
+    
+    /** Get the source.
+    */
+    public String getSource()
+    {
+      return source;
+    }
+    
+    /** Get the target.
+    */
+    public String getTarget()
+    {
+      return target;
+    }
+    
   }
   
 }

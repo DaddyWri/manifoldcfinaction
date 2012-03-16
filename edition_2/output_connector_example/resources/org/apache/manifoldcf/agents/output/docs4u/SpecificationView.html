@@ -17,7 +17,42 @@
 
 <table class="displaytable">
 
-MHL for access mapping
+  <tr>
+    <td class="description"><nobr>Docs4U URL attribute:</nobr></td>
+    <td class="value">
+      <nobr>$Encoder.bodyEscape($urlmetadataname)</nobr>
+    </td>
+  </tr>
+
+  <tr>
+    <td class="description"><nobr>Mappings:</nobr></td>
+    <td class="boxcell">
+      <table class="formtable">
+        <tr class="formheaderrow">
+          <td class="formcolumnheader"><nobr>Source attribute</nobr></td>
+          <td class="formcolumnheader"><nobr>Docs4U attribute</nobr></td>
+        </tr>
+#foreach($metadatarecord in $metadatarecords)
+  #if($velocityCount % 2 == 0)
+        <tr class="oddformrow">
+  #else
+        <tr class="evenformrow">
+  #end
+          <td class="formcolumncell">
+            <nobr>
+              $Encoder.bodyEscape($metadatarecord.getSource())
+            </nobr>
+          </td>
+          <td class="formcolumncell">
+            <nobr>
+              $Encoder.bodyEscape($metadatarecord.getTarget())
+            </nobr>
+          </td>
+        </tr>
+#end
+      </table>
+    </td>
+  </tr>
 
   <tr>
     <td class="description"><nobr>Docs4U security mapping:</nobr></td>
