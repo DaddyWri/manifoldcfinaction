@@ -23,9 +23,9 @@
     <td class="description"><nobr>Access token mapping:</nobr></td>
     <td class="value">
       <nobr>
-         <input type="text" name="ocsecurityregexp" value="$Encoder.attributeEscape(regexp)"/>
+         <input type="text" name="ocsecurityregexp" value="$Encoder.attributeEscape($regexp)"/>
          ==&gt;
-         <input type="text" name="ocsecuritytranslation" value="$Encoder.attributeEscape(translation)"/>
+         <input type="text" name="ocsecuritytranslation" value="$Encoder.attributeEscape($translation)"/>
       </nobr>
     </td>
   </tr>
@@ -34,6 +34,6 @@
 #else
 
 <input type="hidden" name="ocsecurityregexp" value="$Encoder.attributeEscape($regexp)"/>
-<input type="hidden" name="ocsecuritytranslation" value="$Encoder.attributeEscape(translation)"/>\
+<input type="hidden" name="ocsecuritytranslation" value="$Encoder.attributeEscape($translation)"/>\
 
 #end
