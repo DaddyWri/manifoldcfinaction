@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Locale;
+import java.util.Set;
+import java.util.HashSet;
 
 // This is where we get pull-agent system loggers
 import org.apache.manifoldcf.crawler.system.Logging;
@@ -144,32 +147,17 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
   @Override
   public void outputConfigurationHeader(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, List<String> tabsArray)
+    Locale locale, ConfigParams parameters, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
-    out.print(
-"<script type=\"text/javascript\">\n"+
-"<!--\n"+
-"function checkConfigForSave()\n"+
-"{\n"+
-"  if (editconnection.repositoryroot.value == \"\")\n"+
-"  {\n"+
-"    alert(\"Enter a repository root\");\n"+
-"    SelectTab(\"Repository\");\n"+
-"    editconnection.repositoryroot.focus();\n"+
-"    return false;\n"+
-"  }\n"+
-"  return true;\n"+
-"}\n"+
-"//-->\n"+
-"</script>\n"
-    );
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationHeader.html",null);
   }
 
   /** Output the configuration body section.
@@ -180,42 +168,33 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabName is the current tab name.
   */
   @Override
   public void outputConfigurationBody(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, String tabName)
+    Locale locale, ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
+  {
+    // Output the Repository tab
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInRepositoryTab(velocityContext,parameters);
+    Messages.outputResourceWithVelocity(out,locale,"Configuration_Repository.html",velocityContext);
+  }
+  
+  /** Fill in Velocity context for Repository tab.
+  */
+  protected static void fillInRepositoryTab(Map<String,Object> velocityContext,
+    ConfigParams parameters)
   {
     String repositoryRoot = parameters.getParameter(PARAMETER_REPOSITORY_ROOT);
     if (repositoryRoot == null)
       repositoryRoot = "";
-
-    if (tabName.equals("Repository"))
-    {
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      <input type=\"text\" size=\"64\" name=\"repositoryroot\" value=\""+
-  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      out.print(
-"<input type=\"hidden\" name=\"repositoryroot\" value=\""+
-  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"
-      );
-    }
+    velocityContext.put("repositoryroot",repositoryRoot);
   }
-
+  
   /** Process a configuration post.
   * This method is called at the start of the connector's configuration page, whenever there is a possibility
   * that form data for a connection has been posted.  Its purpose is to gather form information and modify
@@ -246,23 +225,17 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   */
   @Override
-  public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
+  public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out,
+    Locale locale, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
-    out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      "+Encoder.bodyEscape(
-  parameters.getParameter(PARAMETER_REPOSITORY_ROOT))+"\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-    );
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    fillInRepositoryTab(velocityContext,parameters);
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationView.html",velocityContext);
   }
   
   /** Get the current session, or create one if not valid.
@@ -770,122 +743,21 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * that might be needed by the job editing HTML.
   * The connector will be connected before this method can be called.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param ds is the current document specification for this job.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
   @Override
-  public void outputSpecificationHeader(IHTTPOutput out, DocumentSpecification ds, List<String> tabsArray)
+  public void outputSpecificationHeader(IHTTPOutput out, Locale locale,
+    DocumentSpecification ds, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     // Add the tabs
     tabsArray.add("Documents");
     tabsArray.add("Metadata");
-
-    // Start the javascript
-    out.print(
-"<script type=\"text/javascript\">\n"+
-"<!--\n"
-    );
-    
-    // Output the overall check function
-    out.print(
-"function checkSpecification()\n"+
-"{\n"+
-"  if (checkDocumentsTab() == false)\n"+
-"    return false;\n"+
-"  if (checkMetadataTab() == false)\n"+
-"    return false;\n"+
-"  return true;\n"+
-"}\n"+
-"\n"
-    );
-
-    // Output a useful method which sets a specified command
-    // value, and then re-posts the form using the supplied anchor
-    out.print(
-"function SpecOp(n, opValue, anchorvalue)\n"+
-"{\n"+
-"  eval(\"editjob.\"+n+\".value = \\\"\"+opValue+\"\\\"\");\n"+
-"  postFormSetAnchor(anchorvalue);\n"+
-"}\n"+
-"\n"
-    );
-
-    // Output the actual javascript for the tabs
-    outputDocumentsTabJavascript(out,ds);
-    outputMetadataTabJavascript(out,ds);
-
-    // Terminate the javascript tag
-    out.print(
-"//-->\n"+
-"</script>\n"
-    );
-    
+    Messages.outputResourceWithVelocity(out,locale,"SpecificationHeader.html",null);
   }
     
-  /** Output the javascript for the Documents tab.
-  */
-  protected void outputDocumentsTabJavascript(IHTTPOutput out, DocumentSpecification ds)
-    throws ManifoldCFException, IOException
-  {
-    // The check function for this tab, which does nothing
-    // (Called whenever the tab is navigated away from)
-    out.print(
-"function checkDocumentsTab()\n"+
-"{\n"+
-"  return true;\n"+
-"}\n"+
-"\n"
-    );
-
-    // Delete a row from the displayed table
-    out.print(
-"function FindDelete(n)\n"+
-"{\n"+
-"  SpecOp(\"findop_\"+n, \"Delete\", \"find_\"+n);\n"+
-"}\n"+
-"\n"
-    );
-    
-    // Add a row to the displayed table
-    out.print(
-"function FindAdd(n)\n"+
-"{\n"+
-"  if (editjob.findname.value == \"\")\n"+
-"  {\n"+
-"    alert(\"Please select a metadata name first.\");\n"+
-"    editjob.findname.focus();\n"+
-"    return;\n"+
-"  }\n"+
-"  if (editjob.findvalue.value == \"\")\n"+
-"  {\n"+
-"    alert(\"Metadata value cannot be blank.\");\n"+
-"    editjob.findvalue.focus();\n"+
-"    return;\n"+
-"  }\n"+
-"  SpecOp(\"findop\", \"Add\", \"find_\"+n);\n"+
-"}\n"+
-"\n"
-    );
-  }
-
-  /** Output the javascript for the Metadata tab.
-  */
-  protected void outputMetadataTabJavascript(IHTTPOutput out, DocumentSpecification ds)
-    throws ManifoldCFException, IOException
-  {
-    // The check function for this tab, which does nothing
-    // (Called whenever the tab is navigated away from)
-    out.print(
-"function checkMetadataTab()\n"+
-"{\n"+
-"  return true;\n"+
-"}\n"+
-"\n"
-    );
-
-  }
-  
   /** Output the specification body section.
   * This method is called in the body section of a job page which has selected a repository connection of the
   * current type.  Its purpose is to present the required form elements for editing.
@@ -893,296 +765,106 @@ public class Docs4UConnector extends BaseRepositoryConnector
   *  <html>, <body>, and <form> tags.  The name of the form is always "editjob".
   * The connector will be connected before this method can be called.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param ds is the current document specification for this job.
   *@param tabName is the current tab name.
   */
   @Override
-  public void outputSpecificationBody(IHTTPOutput out, DocumentSpecification ds, String tabName)
+  public void outputSpecificationBody(IHTTPOutput out, Locale locale,
+    DocumentSpecification ds, String tabName)
     throws ManifoldCFException, IOException
   {
     // Do the "Documents" tab
-    outputDocumentsTab(out,ds,tabName);
+    outputDocumentsTab(out,locale,ds,tabName);
     // Do the "Metadata" tab
-    outputMetadataTab(out,ds,tabName);
+    outputMetadataTab(out,locale,ds,tabName);
   }
   
   /** Take care of "Documents" tab.
   */
-  protected void outputDocumentsTab(IHTTPOutput out, DocumentSpecification ds, String tabName)
+  protected void outputDocumentsTab(IHTTPOutput out, Locale locale,
+    DocumentSpecification ds, String tabName)
     throws ManifoldCFException, IOException
   {
-    int i;
-    int k;
-    
-    if (tabName.equals("Documents"))
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInDocumentsTab(velocityContext,ds);
+    fillInMetadataSelection(velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"Specification_Documents.html",velocityContext);
+  }
+  
+  /** Fill in Velocity context with data for Documents tab.
+  */
+  protected static void fillInDocumentsTab(Map<String,Object> velocityContext,
+    DocumentSpecification ds)
+  {
+    List<MatchRow> list = new ArrayList<MatchRow>();
+    int i = 0;
+    while (i < ds.getChildCount())
     {
-      // Present a table of all the metadata name/values we've done so far.
-      // The table will have three columns: a column for the delete button, a column for the
-      // metadata name, and a column for the metadata value.
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Matches:</nobr></td>\n"+
-"    <td class=\"boxcell\">\n"+
-"      <table class=\"formtable\">\n"+
-"        <tr class=\"formheaderrow\">\n"+
-"          <td class=\"formcolumnheader\"></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Metadata name</nobr></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Value</nobr></td>\n"+
-"        </tr>\n"
-      );
-      
-      i = 0;
-      k = 0;
-      while (i < ds.getChildCount())
+      SpecificationNode sn = ds.getChild(i++);
+      // Look for FIND_PARAMETER nodes in the document specification
+      if (sn.getType().equals(NODE_FIND_PARAMETER))
       {
-        SpecificationNode sn = ds.getChild(i++);
-        // Look for FIND_PARAMETER nodes in the document specification
-        if (sn.getType().equals(NODE_FIND_PARAMETER))
-        {
-          // Pull the metadata name and value from the FIND_PARAMETER node
-          String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
-          String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
-          // We'll need a suffix for each row, used for form element names and
-          // for anchor names.
-          String findParameterSuffix = "_"+Integer.toString(k);
-          // Output the row.
-          out.print(
-"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <input type=\"hidden\" name=\"findop"+findParameterSuffix+"\" value=\"\"/>\n"+
-"            <input type=\"hidden\" name=\"findname"+findParameterSuffix+"\" value=\""+
-  Encoder.attributeEscape(findParameterName)+"\"/>\n"+
-"            <input type=\"hidden\" name=\"findvalue"+findParameterSuffix+"\" value=\""+
-  Encoder.attributeEscape(findParameterValue)+"\"/>\n"+
-"            <a name=\""+"find_"+Integer.toString(k)+"\">\n"+
-"              <input type=\"button\" value=\"Delete\" onClick='Javascript:FindDelete(\""+
-  Integer.toString(k)+"\")' alt=\"Delete match #"+Integer.toString(k)+"\"/>\n"+
-"            </a>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(findParameterName)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(findParameterValue)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"        </tr>\n"
-          );
-
-          // Increment the row counter
-          k++;
-        }
+        // Pull the metadata name and value from the FIND_PARAMETER node
+        String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
+        String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
+        list.add(new MatchRow(findParameterName,findParameterValue));
       }
-      
-      if (k == 0)
-      {
-        // There are no records yet.  Print an empty record summary
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">No documents specified</td></tr>\n"
-        );
-      }
-      
-      // Output a separator
-      out.print(
-"        <tr class=\"formrow\"><td class=\"formseparator\" colspan=\"3\"><hr/></td></tr>\n"
-      );
-      
-      // Output the Add button, in its own table row
-      
-      // We need a try/catch block because an exception can be thrown when we query the
-      // repository.
-      try
-      {
-        String[] matchNames = getMetadataNames();
-        // Success!  Now output the row content
-        out.print(
-"        <tr class=\"formrow\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              <a name=\"find_"+Integer.toString(k)+"\">\n"+
-"                <input type=\"button\" value=\"Add\" onClick='Javascript:FindAdd(\""+
-  Integer.toString(k+1)+"\")' alt=\"Add new match\"/>\n"+
-"                <input type=\"hidden\" name=\"findcount\" value=\""+Integer.toString(k)+"\"/>\n"+
-"                <input type=\"hidden\" name=\"findop\" value=\"\"/>\n"+
-"              </a>\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <select name=\"findname\">\n"+
-"              <option value=\"\" selected=\"true\">--Select metadata name --</option>\n"
-        );
-      
-        int q= 0;
-        while (q < matchNames.length)
-        {
-          out.print(
-"              <option value=\""+Encoder.attributeEscape(matchNames[q])+"\">"+
-  Encoder.bodyEscape(matchNames[q])+"</option>\n"
-          );
-          q++;
-        }
-        
-        out.print(
-"            </select>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              <input type=\"text\" size=\"32\" name=\"findvalue\" value=\"\"/>\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"        </tr>\n"
-        );
-      }
-      catch (ManifoldCFException e)
-      {
-        // If there was an error, display it as the entire row contents
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-      catch (ServiceInterruption e)
-      {
-        out.print(
-"        <tr class=\"formrow\"><td class=\"formcolumnmessage\" colspan=\"3\">Transient error: "+
-  Encoder.bodyEscape(e.getMessage())+"</td></tr>\n"
-        );
-      }
-      
-      // Finish off cell and add the final match value box.
-      out.print(
-"      </table>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
     }
-    else
+    velocityContext.put("matches",list);
+  }
+  
+  /** Fill in Velocity context with data to permit attribute selection.
+  */
+  protected void fillInMetadataSelection(Map<String,Object> velocityContext)
+  {
+    try
     {
-      // Output the hiddens for the "Documents" tab.
-      // This is a repeat of the logic for the displayed form, except only the pertinent hiddens
-      // are output.
-      k = 0;
-      i = 0;
-      while (i < ds.getChildCount())
-      {
-        SpecificationNode sn = ds.getChild(i++);
-        // Look for FIND_PARAMETER nodes in the document specification
-        if (sn.getType().equals(NODE_FIND_PARAMETER))
-        {
-          // Pull the metadata name and value from the FIND_PARAMETER node
-          String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
-          String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
-          String findParameterSuffix = "_"+Integer.toString(k);
-          // Output the row.
-          out.print(
-"<input type=\"hidden\" name=\"findname"+findParameterSuffix+"\" value=\""+
-  Encoder.attributeEscape(findParameterName)+"\"/>\n"+
-"<input type=\"hidden\" name=\"findvalue"+findParameterSuffix+"\" value=\""+
-  Encoder.attributeEscape(findParameterValue)+"\"/>\n"
-          );
-          k++;
-        }
-      }
-      out.print(
-"<input type=\"hidden\" name=\"findcount\" value=\""+Integer.toString(k)+"\"/>\n"
-      );
+      String[] matchNames = getMetadataNames();
+      velocityContext.put("metadataattributes",matchNames);
+      velocityContext.put("error","");
+    }
+    catch (ManifoldCFException e)
+    {
+      velocityContext.put("error","Error: "+e.getMessage());
+    }
+    catch (ServiceInterruption e)
+    {
+      velocityContext.put("error","Transient error: "+e.getMessage());
     }
   }
   
   /** Take care of "Metadata" tab.
   */
-  protected void outputMetadataTab(IHTTPOutput out, DocumentSpecification ds, String tabName)
+  protected void outputMetadataTab(IHTTPOutput out, Locale locale,
+    DocumentSpecification ds, String tabName)
     throws ManifoldCFException, IOException
   {
-    int i;
-    
-    // Do the "Metadata" tab
-    if (tabName.equals("Metadata"))
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInMetadataTab(velocityContext,ds);
+    fillInMetadataSelection(velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"Specification_Metadata.html",velocityContext);
+  }
+  
+  /** Fill in Velocity context for Metadata tab.
+  */
+  protected static void fillInMetadataTab(Map<String,Object> velocityContext,
+    DocumentSpecification ds)
+  {
+    Set<String> metadataSelections = new HashSet<String>();
+    int i = 0;
+    while (i < ds.getChildCount())
     {
-      // The tab is selected.  Output a description and a value, the value consisting
-      // of a checkbox for every kind of metadata.
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Include:</nobr></td>\n"+
-"    <td class=\"value\">\n"
-      );
-      
-      // Get the allowed set of metadata
-      // We need a try/catch block because an exception can be thrown when we query the
-      // repository.
-      try
+      SpecificationNode sn = ds.getChild(i++);
+      if (sn.getType().equals(NODE_INCLUDED_METADATA))
       {
-        String[] matchNames = getMetadataNames();
-        // Loop through the current metadata selection and build a hash map
-        i = 0;
-        Map<String,String> currentSelections = new HashMap<String,String>();
-        while (i < ds.getChildCount())
-        {
-          SpecificationNode sn = ds.getChild(i++);
-          if (sn.getType().equals(NODE_INCLUDED_METADATA))
-          {
-            String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
-            currentSelections.put(metadataName,metadataName);
-          }
-        }
-        // Now, loop through the available selections, and build a checkbox for each.
-        // Checkboxes will be separated by <br/> tags.
-        i = 0;
-        while (i < matchNames.length)
-        {
-          String matchName = matchNames[i];
-          boolean isChecked = (currentSelections.get(matchName) != null);
-          out.print(
-"      <input type=\"checkbox\" name=\"metadata\" value=\""+Encoder.attributeEscape(matchName)+"\""+
-  (isChecked?" checked=\"true\"":"")+"/> "+Encoder.bodyEscape(matchName)+"<br/>\n"
-          );
-          i++;
-        }
-      }
-      catch (ManifoldCFException e)
-      {
-        // If there was an error, display just the text
-        out.print(
-"        Error: "+Encoder.bodyEscape(e.getMessage())+"\n"
-        );
-      }
-      catch (ServiceInterruption e)
-      {
-        out.print(
-"        Transient error: "+Encoder.bodyEscape(e.getMessage())+"\n"
-        );
-      }
-
-      out.print(
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      // The tab is not selected.  Output hidden form elements.
-      i = 0;
-      while (i < ds.getChildCount())
-      {
-        SpecificationNode sn = ds.getChild(i++);
-        if (sn.getType().equals(NODE_INCLUDED_METADATA))
-        {
-          String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
-          out.print(
-"<input type=\"hidden\" name=\"metadata\" value=\""+Encoder.attributeEscape(metadataName)+"\"/>\n"
-          );
-        }
+        String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
+        metadataSelections.add(metadataName);
       }
     }
+    velocityContext.put("metadataselections",metadataSelections);
   }
   
   /** Process a specification post.
@@ -1323,107 +1005,17 @@ public class Docs4UConnector extends BaseRepositoryConnector
   * this configuration will be within appropriate <html> and <body> tags.
   * The connector will be connected before this method can be called.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale.
   *@param ds is the current document specification for this job.
   */
   @Override
-  public void viewSpecification(IHTTPOutput out, DocumentSpecification ds)
+  public void viewSpecification(IHTTPOutput out, Locale locale, DocumentSpecification ds)
     throws ManifoldCFException, IOException
   {
-    out.print(
-"<table class=\"displaytable\">\n"
-    );
-    viewDocumentsTab(out,ds);
-    viewMetadataTab(out,ds);
-    out.print(
-"</table>\n"
-    );
-  }
-
-  /** View the "Documents" tab contents
-  */
-  protected void viewDocumentsTab(IHTTPOutput out, DocumentSpecification ds)
-    throws ManifoldCFException, IOException
-  {
-    int i;
-    int k;
-    
-    out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Matches:</nobr></td>\n"+
-"    <td class=\"boxcell\">\n"+
-"      <table class=\"formtable\">\n"+
-"        <tr class=\"formheaderrow\">\n"+
-"          <td class=\"formcolumnheader\"><nobr>Metadata name</nobr></td>\n"+
-"          <td class=\"formcolumnheader\"><nobr>Value</nobr></td>\n"+
-"        </tr>\n"
-    );
-    
-    i = 0;
-    k = 0;
-    while (i < ds.getChildCount())
-    {
-      SpecificationNode sn = ds.getChild(i++);
-      if (sn.getType().equals(NODE_FIND_PARAMETER))
-      {
-        String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
-        String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
-        out.print(
-"        <tr class=\""+(((k % 2)==0)?"evenformrow":"oddformrow")+"\">\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(findParameterName)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"          <td class=\"formcolumncell\">\n"+
-"            <nobr>\n"+
-"              "+Encoder.bodyEscape(findParameterValue)+"\n"+
-"            </nobr>\n"+
-"          </td>\n"+
-"        </tr>\n"
-        );
-        k++;
-      }
-    }
-    
-    out.print(
-"      </table>\n"+
-"    </td>\n"+
-"  </tr>\n"
-    );
-  }
-  
-  /** View the "Metadata" tab contents
-  */
-  protected void viewMetadataTab(IHTTPOutput out, DocumentSpecification ds)
-    throws ManifoldCFException, IOException
-  {
-    // Output included metadata
-    out.print(
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Included:</nobr></td>\n"+
-"    <td class=\"value\">\n"
-    );
-    
-    boolean seenData = false;
-    int i = 0;
-    while (i < ds.getChildCount())
-    {
-      SpecificationNode sn = ds.getChild(i++);
-      if (sn.getType().equals(NODE_INCLUDED_METADATA))
-      {
-        String metadataName = sn.getAttributeValue(ATTRIBUTE_NAME);
-        if (seenData)
-          out.print(", ");
-        out.print(Encoder.bodyEscape(metadataName));
-        seenData = true;
-      }
-    }
-    
-    out.print(
-"    </td>\n"+
-"  </tr>\n"
-    );
-    
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    fillInDocumentsTab(velocityContext,ds);
+    fillInMetadataTab(velocityContext,ds);
+    Messages.outputResourceWithVelocity(out,locale,"SpecificationView.html",velocityContext);
   }
 
   // Protected UI support methods
@@ -1447,6 +1039,35 @@ public class Docs4UConnector extends BaseRepositoryConnector
     catch (D4UException e)
     {
       throw new ManifoldCFException(e.getMessage(),e);
+    }
+  }
+  
+  /** Class for describing a Documents table row to Velocity.
+  */
+  protected static class MatchRow
+  {
+    protected String name;
+    protected String value;
+    
+    /** Constructor. */
+    public MatchRow(String name, String value)
+    {
+      this.name = name;
+      this.value = value;
+    }
+    
+    /** Get the name.
+    */
+    public String getName()
+    {
+      return name;
+    }
+    
+    /** Get the value.
+    */
+    public String getValue()
+    {
+      return value;
     }
   }
   

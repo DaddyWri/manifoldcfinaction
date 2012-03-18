@@ -25,6 +25,9 @@ import org.apache.manifoldcf.authorities.interfaces.*;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+import java.util.HashMap;
 
 // This is where we get pull-agent system loggers
 import org.apache.manifoldcf.authorities.system.Logging;
@@ -123,51 +126,18 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired locale of the output.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabsArray is an array of tab names.  Add to this array any tab names that are specific to the connector.
   */
   @Override
   public void outputConfigurationHeader(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, List<String> tabsArray)
+    Locale locale, ConfigParams parameters, List<String> tabsArray)
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
     tabsArray.add("User Mapping");
-    out.print(
-"<script type=\"text/javascript\">\n"+
-"<!--\n"+
-"function checkConfig()\n"+
-"{\n"+
-"  if (editconnection.usernameregexp.value != \"\" && !isRegularExpression(editconnection.usernameregexp.value))\n"+
-"  {\n"+
-"    alert(\"User name regular expression must be a valid regular expression\");\n"+
-"    editconnection.usernameregexp.focus();\n"+
-"    return false;\n"+
-"  }\n"+
-"  return true;\n"+
-"}\n"+
-"\n"+
-"function checkConfigForSave()\n"+
-"{\n"+
-"  if (editconnection.repositoryroot.value == \"\")\n"+
-"  {\n"+
-"    alert(\"Enter a repository root\");\n"+
-"    SelectTab(\"Repository\");\n"+
-"    editconnection.repositoryroot.focus();\n"+
-"    return false;\n"+
-"  }\n"+
-"  if (editconnection.usernameregexp.value == \"\")\n"+
-"  {\n"+
-"    alert(\"User name regular expression cannot be null\");\n"+
-"    SelectTab(\"User Mapping\");\n"+
-"    editconnection.usernameregexp.focus();\n"+
-"    return false;\n"+
-"  }\n"+
-"  return true;\n"+
-"}\n"+
-"//-->\n"+
-"</script>\n"
-    );
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationHeader.html",null);
   }
 
   /** Output the configuration body section.
@@ -178,17 +148,45 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the desired output locale.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   *@param tabName is the current tab name.
   */
   @Override
   public void outputConfigurationBody(IThreadContext threadContext, IHTTPOutput out,
-    ConfigParams parameters, String tabName)
+    Locale locale, ConfigParams parameters, String tabName)
     throws ManifoldCFException, IOException
+  {
+    // Output the Repository tab
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    velocityContext.put("TabName",tabName);
+    fillInRepositoryTab(velocityContext,parameters);
+    Messages.outputResourceWithVelocity(out,locale,"Configuration_Repository.html",velocityContext);
+    
+    // Output the User Mapping tab
+    velocityContext.clear();
+    velocityContext.put("TabName",tabName);
+    fillInUserMappingTab(velocityContext,parameters);
+    Messages.outputResourceWithVelocity(out,locale,"Configuration_User_Mapping.html",velocityContext);
+
+  }
+  
+  /** Fill in velocity parameters for Repository tab.
+  */
+  protected static void fillInRepositoryTab(Map<String,Object> velocityContext,
+    ConfigParams parameters)
   {
     String repositoryRoot = parameters.getParameter(PARAMETER_REPOSITORY_ROOT);
     if (repositoryRoot == null)
       repositoryRoot = "";
+    velocityContext.put("repositoryroot",repositoryRoot);
+  }
+  
+  /** Fill in velocity parameters for User Mapping tab.
+  */
+  protected static void fillInUserMappingTab(Map<String,Object> velocityContext,
+    ConfigParams parameters)
+  {
     String userMappingString = parameters.getParameter(PARAMETER_USERMAPPING);
     MatchMap localMap;
     if (userMappingString != null)
@@ -200,58 +198,10 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     }
     String usernameRegexp = localMap.getMatchString(0);
     String userTranslation = localMap.getReplaceString(0);
-
-    if (tabName.equals("Repository"))
-    {
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      <input type=\"text\" size=\"64\" name=\"repositoryroot\" value=\""+
-  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      out.print(
-"<input type=\"hidden\" name=\"repositoryroot\" value=\""+
-  Encoder.attributeEscape(repositoryRoot)+"\"/>\n"
-      );
-    }
-    
-    if (tabName.equals("User Mapping"))
-    {
-      out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr><td class=\"separator\" colspan=\"2\"><hr/></td></tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>User mapping:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      <input type=\"text\" size=\"32\" name=\"usernameregexp\" value=\""+
-  Encoder.attributeEscape(usernameRegexp)+"\"/> ==&gt; \n"+
-"      <input type=\"text\" size=\"32\" name=\"usertranslation\" value=\""+
-  Encoder.attributeEscape(userTranslation)+"\"/>\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-      );
-    }
-    else
-    {
-      out.print(
-"<input type=\"hidden\" name=\"usernameregexp\" value=\""+
-  Encoder.attributeEscape(usernameRegexp)+"\"/>\n"+
-"<input type=\"hidden\" name=\"usertranslation\" value=\""+
-  Encoder.attributeEscape(userTranslation)+"\"/>\n"
-      );
-    }
+    velocityContext.put("usernameregexp",usernameRegexp);
+    velocityContext.put("usertranslation",userTranslation);
   }
-
+  
   /** Process a configuration post.
   * This method is called at the start of the connector's configuration page, whenever there is a possibility
   * that form data for a connection has been posted.  Its purpose is to gather form information and modify
@@ -291,35 +241,18 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   * The connector does not need to be connected for this method to be called.
   *@param threadContext is the local thread context.
   *@param out is the output to which any HTML should be sent.
+  *@param locale is the locale that the html should be output with.
   *@param parameters are the configuration parameters, as they currently exist, for this connection being configured.
   */
   @Override
-  public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out, ConfigParams parameters)
+  public void viewConfiguration(IThreadContext threadContext, IHTTPOutput out,
+    Locale locale, ConfigParams parameters)
     throws ManifoldCFException, IOException
   {
-    String userMappingString = parameters.getParameter(PARAMETER_USERMAPPING);
-    MatchMap localMap = new MatchMap(userMappingString);
-    String usernameRegexp = localMap.getMatchString(0);
-    String userTranslation = localMap.getReplaceString(0);
-
-    out.print(
-"<table class=\"displaytable\">\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>Repository root:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      "+Encoder.bodyEscape(
-  parameters.getParameter(PARAMETER_REPOSITORY_ROOT))+"\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"  <tr>\n"+
-"    <td class=\"description\"><nobr>User mapping:</nobr></td>\n"+
-"    <td class=\"value\">\n"+
-"      "+Encoder.bodyEscape(usernameRegexp)+" ==&gt; \n"+
-"      "+Encoder.bodyEscape(userTranslation)+"\n"+
-"    </td>\n"+
-"  </tr>\n"+
-"</table>\n"
-    );
+    Map<String,Object> velocityContext = new HashMap<String,Object>();
+    fillInRepositoryTab(velocityContext,parameters);
+    fillInUserMappingTab(velocityContext,parameters);
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationView.html",velocityContext);
   }
   
   /** Get the current session, or create one if not valid.

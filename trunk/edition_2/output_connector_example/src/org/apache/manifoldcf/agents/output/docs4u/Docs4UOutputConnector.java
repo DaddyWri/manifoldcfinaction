@@ -197,8 +197,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
-    Map<String,Object> velocityContext = new HashMap<String,Object>();
-    Messages.outputResourceWithVelocity(out, locale, "ConfigurationHeader.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationHeader.html",null);
   }
 
   /** Output the configuration body section.
@@ -222,7 +221,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     Map<String,Object> velocityContext = new HashMap<String,Object>();
     velocityContext.put("TabName", tabName);
     fillInRepositoryParameters(velocityContext, parameters);
-    Messages.outputResourceWithVelocity(out, locale, "Configuration_Repository.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"Configuration_Repository.html",velocityContext);
   }
 
   /** Process a configuration post.
@@ -271,7 +270,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     fillInRepositoryParameters(velocityContext, parameters);
     
     // Output
-    Messages.outputResourceWithVelocity(out, locale, "ConfigurationView.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"ConfigurationView.html",velocityContext);
   }
   
   /** Get the current session, or create one if not valid.
@@ -879,8 +878,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     tabsArray.add("Docs4U Security");
     
     // Output the header
-    Map<String,Object> velocityContext = new HashMap<String,Object>();
-    Messages.outputResourceWithVelocity(out, locale, "SpecificationHeader.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"SpecificationHeader.html",null);
   }
 
   /** Output the specification body section.
@@ -914,7 +912,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     velocityContext.put("TabName",tabName);
     fillInMetadataMappingTab(velocityContext,os);
     fillInMetadataMappingTabSelection(velocityContext);
-    Messages.outputResourceWithVelocity(out, locale, "Specification_Docs4U_Metadata.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"Specification_Docs4U_Metadata.html",velocityContext);
   }
   
   /** Fill in data for Metadata display.
@@ -975,7 +973,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     Map<String,Object> velocityContext = new HashMap<String,Object>();
     velocityContext.put("TabName",tabName);
     fillInAccessMappingTab(velocityContext,os);
-    Messages.outputResourceWithVelocity(out, locale, "Specification_Docs4U_Security.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"Specification_Docs4U_Security.html",velocityContext);
   }
 
   /** Fill in data for "Security" tab.
@@ -1166,7 +1164,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
     Map<String,Object> velocityContext = new HashMap<String,Object>();
     fillInMetadataMappingTab(velocityContext,os);
     fillInAccessMappingTab(velocityContext,os);
-    Messages.outputResourceWithVelocity(out, locale, "SpecificationView.html", velocityContext);
+    Messages.outputResourceWithVelocity(out,locale,"SpecificationView.html",velocityContext);
   }
 
   /** Calculate a lock name given a user/group name.
