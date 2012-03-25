@@ -798,7 +798,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   protected static void fillInDocumentsTab(Map<String,Object> velocityContext,
     DocumentSpecification ds)
   {
-    List<MatchRow> list = new ArrayList<MatchRow>();
+    List<Map<String,String>> list = new ArrayList<Map<String,String>>();
     int i = 0;
     while (i < ds.getChildCount())
     {
@@ -809,7 +809,10 @@ public class Docs4UConnector extends BaseRepositoryConnector
         // Pull the metadata name and value from the FIND_PARAMETER node
         String findParameterName = sn.getAttributeValue(ATTRIBUTE_NAME);
         String findParameterValue = sn.getAttributeValue(ATTRIBUTE_VALUE);
-        list.add(new MatchRow(findParameterName,findParameterValue));
+        Map<String,String> row = new HashMap<String,String>();
+        row.put("name",findParameterName);
+        row.put("value",findParameterValue);
+        list.add(row);
       }
     }
     velocityContext.put("matches",list);
@@ -1039,35 +1042,6 @@ public class Docs4UConnector extends BaseRepositoryConnector
     catch (D4UException e)
     {
       throw new ManifoldCFException(e.getMessage(),e);
-    }
-  }
-  
-  /** Class for describing a Documents table row to Velocity.
-  */
-  protected static class MatchRow
-  {
-    protected String name;
-    protected String value;
-    
-    /** Constructor. */
-    public MatchRow(String name, String value)
-    {
-      this.name = name;
-      this.value = value;
-    }
-    
-    /** Get the name.
-    */
-    public String getName()
-    {
-      return name;
-    }
-    
-    /** Get the value.
-    */
-    public String getValue()
-    {
-      return value;
     }
   }
   

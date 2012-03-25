@@ -34,12 +34,12 @@
   #end
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($match.getName())
+              $Encoder.bodyEscape($match.get('name'))
             </nobr>
           </td>
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($match.getValue())
+              $Encoder.bodyEscape($match.get('value'))
             </nobr>
           </td>
         </tr>
@@ -60,7 +60,7 @@
       ,
   #end
   #set($seendata = true)
-        $Encoder.bodyEscape($metadataselection);
+        $Encoder.bodyEscape($metadataselection)
 #end
 
     </td>

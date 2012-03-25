@@ -31,7 +31,6 @@
 
   #set($k = 0)
   #foreach($match in $matches)
-    #set($suffix = '_$k')
     
     #if(($k % 2) == 0)
         <tr class="evenformrow">
@@ -40,21 +39,21 @@
     #end
       
           <td class="formcolumncell">
-            <input type="hidden" name="findop$suffix" value=""/>
-            <input type="hidden" name="findname$suffix" value="$Encoder.attributeEscape($match.getName())"/>
-            <input type="hidden" name="findvalue$suffix" value="$Encoder.attributeEscape($match.getValue())"/>
-            <a name="find$suffix">
+            <input type="hidden" name="findop_$k" value=""/>
+            <input type="hidden" name="findname_$k" value="$Encoder.attributeEscape($match.get('name'))"/>
+            <input type="hidden" name="findvalue_$k" value="$Encoder.attributeEscape($match.get('value'))"/>
+            <a name="find_$k">
               <input type="button" value="Delete" onClick='Javascript:FindDelete("$k")' alt="Delete match #$k"/>
             </a>
           </td>
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($match.getName())
+              $Encoder.bodyEscape($match.get('name'))
             </nobr>
           </td>
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($match.getValue())
+              $Encoder.bodyEscape($match.get('value'))
             </nobr>
           </td>
         </tr>
@@ -104,6 +103,8 @@
             </nobr>
           </td>
         </tr>
+  #end
+
       </table>
     </td>
   </tr>
@@ -113,10 +114,9 @@
 
   #set($k = 0)
   #foreach($match in $matches)
-    #set($suffix = '_$k')
 
-<input type="hidden" name="findname$suffix" value="$Encoder.attributeEscape($match.getName())"/>
-<input type="hidden" name="findvalue$suffix" value="$Encoder.attributeEscape($match.getValue())"/>
+<input type="hidden" name="findname_$k" value="$Encoder.attributeEscape($match.get('name'))"/>
+<input type="hidden" name="findvalue_$k" value="$Encoder.attributeEscape($match.get('value'))"/>
   
     #set($k = $k + 1)
   #end

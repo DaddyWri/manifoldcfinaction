@@ -922,7 +922,7 @@ public class Docs4UOutputConnector extends BaseOutputConnector
   {
     // Scan the output specification, and convert to things Velocity understands
     String urlMetadataName = "";
-    List<MappingRow> mappings = new ArrayList<MappingRow>();
+    List<Map<String,String>> mappings = new ArrayList<Map<String,String>>();
     Set<String> usedAttributes = new HashSet<String>();
     int i = 0;
     while (i < os.getChildCount())
@@ -935,7 +935,10 @@ public class Docs4UOutputConnector extends BaseOutputConnector
         String metadataRecordSource = sn.getAttributeValue(ATTRIBUTE_SOURCE);
         String metadataRecordTarget = sn.getAttributeValue(ATTRIBUTE_TARGET);
         usedAttributes.add(metadataRecordTarget);
-        mappings.add(new MappingRow(metadataRecordSource,metadataRecordTarget));
+        Map<String,String> row = new HashMap<String,String>();
+        row.put("source",metadataRecordSource);
+        row.put("target",metadataRecordTarget);
+        mappings.add(row);
       }
     }
     velocityContext.put("urlmetadataname",urlMetadataName);
@@ -1199,39 +1202,6 @@ public class Docs4UOutputConnector extends BaseOutputConnector
       throw new ManifoldCFException(e.getMessage(),e);
     }
   }
-  
-  
-  /** Nested class to represent a row in source/target mapping table.
-  * This is used to communicate mappings to Velocity in a manner it can
-  * make use of.
-  */
-  protected static class MappingRow
-  {
-    protected String source;
-    protected String target;
-    
-    /** Constructor. */
-    public MappingRow(String source, String target)
-    {
-      this.source = source;
-      this.target = target;
-    }
-    
-    /** Get the source.
-    */
-    public String getSource()
-    {
-      return source;
-    }
-    
-    /** Get the target.
-    */
-    public String getTarget()
-    {
-      return target;
-    }
-    
-  }
-  
+
 }
 

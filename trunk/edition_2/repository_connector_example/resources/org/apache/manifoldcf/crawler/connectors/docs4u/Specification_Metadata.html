@@ -23,7 +23,7 @@
     <td class="description"><nobr>Include:</nobr></td>
     <td class="value">
 
-  #if($error == '')
+  #if($error != '')
         $Encoder.bodyEscape($error)
   #else
     #foreach($metadataattribute in $metadataattributes)
@@ -36,6 +36,7 @@
       $Encoder.bodyEscape($metadataattribute)<br/>
     #end
     </td>
+  #end
   </tr>
 </table>
 

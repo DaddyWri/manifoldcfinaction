@@ -18,7 +18,7 @@
 #if($TabName == 'Docs4U Metadata')
 
 <table class="displaytable">
-  <tr><td class="separator" colspan="2"><hr/></td></tr>\n"
+  <tr><td class="separator" colspan="2"><hr/></td></tr>
 
   #if($error != '')
   
@@ -70,28 +70,27 @@
   #set($k = 0)
   #foreach($metadatarecord in $metadatarecords)
   
-    #set($suffix = '_$k')
     #if($velocityCount % 2 == 0)
         <tr class="oddformrow">
     #else
         <tr class="evenformrow">
-    #endif
+    #end
           <td class="formcolumncell">
-            <input type="hidden" name="ocmetadataop$suffix" value=""/>
-            <input type="hidden" name="ocmetadatasource$suffix" value="$Encoder.attributeEscape($metadatarecord.getSource())"/>
-            <input type="hidden" name="ocmetadatatarget$suffix" value="$Encoder.attributeEscape($metadatarecord.getTarget())"/>
-            <a name="metadata$suffix">
+            <input type="hidden" name="ocmetadataop_$k" value=""/>
+            <input type="hidden" name="ocmetadatasource_$k" value="$Encoder.attributeEscape($metadatarecord.get('source'))"/>
+            <input type="hidden" name="ocmetadatatarget_$k" value="$Encoder.attributeEscape($metadatarecord.get('target'))"/>
+            <a name="metadata_$k">
               <input type="button" value="Delete" onClick='Javascript:ocMetadataDelete("$k")' alt="Delete mapping #$k"/>
             </a>
           </td>
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($metadatarecord.getSource())
+              $Encoder.bodyEscape($metadatarecord.get('source'))
             </nobr>
           </td>
           <td class="formcolumncell">
             <nobr>
-              $Encoder.bodyEscape($metadatarecord.getTarget())
+              $Encoder.bodyEscape($metadatarecord.get('target'))
             </nobr>
           </td>
         </tr>
@@ -158,13 +157,12 @@
   #set($k = 0)
   #foreach($metadatarecord in $metadatarecords)
   
-    #set($suffix = '_$k')
-<input type="hidden" name="ocmetadatasource$suffix" value="$Encoder.attributeEscape($metadatarecord.getSource())"/>
-<input type="hidden" name="ocmetadatatarget$suffix" value="$Encoder.attributeEscape($metacartarecord.getTarget())"/>
+<input type="hidden" name="ocmetadatasource_$k" value="$Encoder.attributeEscape($metadatarecord.get('source'))"/>
+<input type="hidden" name="ocmetadatatarget_$k" value="$Encoder.attributeEscape($metadatarecord.get('target'))"/>
     #set($k = $k + 1)
     
   #end
 <input type="hidden" name="ocmetadatacount" value="$k"/>
-<input type="hidden" name="ocurlmetadataname" value="$Encoder.attributeEscape($urlmetadataattribute)"/>
+<input type="hidden" name="ocurlmetadataname" value="$Encoder.attributeEscape($urlmetadataname)"/>
 
 #end
