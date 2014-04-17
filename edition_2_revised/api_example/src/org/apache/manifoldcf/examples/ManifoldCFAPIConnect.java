@@ -18,12 +18,32 @@
 */
 package org.apache.manifoldcf.examples;
 
-import org.apache.commons.httpclient.*;
-import org.apache.commons.httpclient.methods.*;
 import org.apache.manifoldcf.core.interfaces.*;
+
+import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.protocol.HttpRequestExecutor;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.config.SocketConfig;
+import org.apache.http.HttpStatus;
+import org.apache.http.HttpException;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.conn.ConnectTimeoutException;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.entity.ContentType;
+import org.apache.http.ParseException;
 
 import java.io.*;
 import java.util.*;
+import java.nio.charset.Charset;
 
 /** This connection class provides everything needed to communicate with the
 * ManifoldCF API.
@@ -32,7 +52,9 @@ public class ManifoldCFAPIConnect
 {
   /** The base URL, e.g. http://localhost:8345/mcf-api-service.
   */
-  protected String baseURL;
+  protected final String baseURL;
+
+  protected final static Charset UTF_8 = Charset.forName("UTF-8");
 
   /** Constructor.
   *@param baseURL is the base URL of the connection.
@@ -40,6 +62,59 @@ public class ManifoldCFAPIConnect
   public ManifoldCFAPIConnect(String baseURL)
   {
     this.baseURL = baseURL;
+  }
+
+  /** Read the response data and convert to the appropriate string.
+  *@param httpResponse is the response object.
+  *@return the response string.
+  */
+  public static String convertToString(HttpResponse httpResponse)
+    throws IOException
+  {
+    HttpEntity entity = httpResponse.getEntity();
+    if (entity != null)
+    {
+      InputStream is = entity.getContent();
+      try
+      {
+        Charset charSet;
+        try
+        {
+          ContentType ct = ContentType.get(entity);
+          if (ct == null)
+            charSet = UTF_8;
+          else
+            charSet = ct.getCharset();
+        }
+        catch (ParseException e)
+        {
+          charSet = UTF_8;
+        }
+        char[] buffer = new char[65536];
+        Reader r = new InputStreamReader(is,charSet);
+        Writer w = new StringWriter();
+        try
+        {
+          while (true)
+          {
+            int amt = r.read(buffer);
+            if (amt == -1)
+              break;
+            w.write(buffer,0,amt);
+          }
+        }
+        finally
+        {
+          w.flush();
+        }
+        return w.toString();
+      }
+      finally
+      {
+        is.close();
+      }
+    }
+    return "";
   }
 
   /** Perform a JSON API GET operation.
@@ -103,13 +178,11 @@ public class ManifoldCFAPIConnect
   public String performAPIRawGetOperation(String restPath)
     throws IOException
   {
-    HttpClient client = new HttpClient();
-    GetMethod method = new GetMethod(formURL(restPath));
-    int response = client.executeMethod(method);
-    byte[] responseData = method.getResponseBody();
-    // We presume that the data is utf-8, since that's what the API
-    // uses throughout.
-    String responseString = new String(responseData,"utf-8");
+    HttpClient client = HttpClients.createDefault();
+    HttpGet method = new HttpGet(formURL(restPath));
+    HttpResponse httpResponse = client.execute(method);
+    int response = httpResponse.getStatusLine().getStatusCode();
+    String responseString = convertToString(httpResponse);
     if (response != HttpStatus.SC_OK &&
       response != HttpStatus.SC_NOT_FOUND)
       throw new IOException("API http GET error; expected "+
@@ -127,15 +200,12 @@ public class ManifoldCFAPIConnect
     String input)
     throws IOException
   {
-    HttpClient client = new HttpClient();
-    PutMethod method = new PutMethod(formURL(restPath));
-    method.setRequestHeader("Content-type", "text/plain; charset=UTF-8");
-    method.setRequestBody(input);
-    int response = client.executeMethod(method);
-    byte[] responseData = method.getResponseBody();
-    // We presume that the data is utf-8, since that's what the API
-    // uses throughout.
-    String responseString = new String(responseData,"utf-8");
+    HttpClient client = HttpClients.createDefault();
+    HttpPut method = new HttpPut(formURL(restPath));
+    method.setEntity(new StringEntity(input,ContentType.create("text/plain","UTF-8")));
+    HttpResponse httpResponse = client.execute(method);
+    int response = httpResponse.getStatusLine().getStatusCode();
+    String responseString = convertToString(httpResponse);
     if (response != HttpStatus.SC_OK && response != HttpStatus.SC_CREATED)
       throw new IOException("API http error; expected "+
         HttpStatus.SC_OK+" or "+HttpStatus.SC_CREATED+", saw "+
@@ -152,15 +222,12 @@ public class ManifoldCFAPIConnect
     String input)
     throws IOException
   {
-    HttpClient client = new HttpClient();
-    PostMethod method = new PostMethod(formURL(restPath));
-    method.setRequestHeader("Content-type", "text/plain; charset=UTF-8");
-    method.setRequestBody(input);
-    int response = client.executeMethod(method);
-    byte[] responseData = method.getResponseBody();
-    // We presume that the data is utf-8, since that's what the API
-    // uses throughout.
-    String responseString = new String(responseData,"utf-8");
+    HttpClient client = HttpClients.createDefault();
+    HttpPost method = new HttpPost(formURL(restPath));
+    method.setEntity(new StringEntity(input,ContentType.create("text/plain","UTF-8")));
+    HttpResponse httpResponse = client.execute(method);
+    int response = httpResponse.getStatusLine().getStatusCode();
+    String responseString = convertToString(httpResponse);
     if (response != HttpStatus.SC_CREATED)
       throw new IOException("API http error; expected "+
         HttpStatus.SC_CREATED+", saw "+
@@ -175,13 +242,11 @@ public class ManifoldCFAPIConnect
   public String performAPIRawDeleteOperation(String restPath)
     throws IOException
   {
-    HttpClient client = new HttpClient();
-    DeleteMethod method = new DeleteMethod(formURL(restPath));
-    int response = client.executeMethod(method);
-    byte[] responseData = method.getResponseBody();
-    // We presume that the data is utf-8, since that's what the API
-    // uses throughout.
-    String responseString = new String(responseData,"utf-8");
+    HttpClient client = HttpClients.createDefault();
+    HttpDelete method = new HttpDelete(formURL(restPath));
+    HttpResponse httpResponse = client.execute(method);
+    int response = httpResponse.getStatusLine().getStatusCode();
+    String responseString = convertToString(httpResponse);
     if (response != HttpStatus.SC_OK)
       throw new IOException("API http error; expected "+
         HttpStatus.SC_OK+", saw "+
