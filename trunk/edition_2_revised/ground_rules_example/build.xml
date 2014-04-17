@@ -1,0 +1,151 @@
+<project default="all">
+
+    <target name="clean">
+        <delete dir="build"/>
+    </target>
+    
+    <target name="compile-common">
+        <mkdir dir="build/common-classes"/>
+        <javac srcdir="common-src" destdir="build/common-classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+        </javac>
+    </target>
+
+    <target name="jar-common" depends="compile-common">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/ground-rules-example-common.jar" basedir="build/common-classes"/>
+    </target>
+
+    <target name="compile-isolation" depends="jar-common">
+        <mkdir dir="build/isolation-classes"/>
+        <javac srcdir="isolation-src" destdir="build/isolation-classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar-isolation" depends="compile-isolation">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/ground-rules-example-isolation.jar" basedir="build/isolation-classes"/>
+    </target>
+
+    <target name="rmic-build" depends="compile-common,compile-isolation">
+        <mkdir dir="build/rmi-classes"/>
+        <rmic base="build/rmi-classes" classname="${classname}">
+            <classpath>
+                <pathelement location="build/isolation-classes"/>
+                <pathelement location="build/common-classes"/>
+            </classpath>
+        </rmic>
+    </target>
+
+    <target name="compile-rmi">
+        <antcall target="rmic-build">
+            <param name="classname" value="org.apache.manifoldcf.examples.SessionFactoryImpl"/>
+        </antcall>
+        <antcall target="rmic-build">
+            <param name="classname" value="org.apache.manifoldcf.examples.SessionImpl"/>
+        </antcall>
+    </target>
+
+    <target name="jar-rmi" depends="compile-rmi">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/ground-rules-example-rmi.jar" basedir="build/rmi-classes"/>
+    </target>
+
+    <target name="compile" depends="jar-common">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                    <include name="ground-rules-example-rmi.jar"/>
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/ground-rules-example.jar" basedir="build/classes"/>
+    </target>
+
+    <target name="run-registry-process" depends="jar-common,jar-rmi,jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.RegistryProcess" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                    <include name="ground-rules-example-rmi.jar"/>
+                    <include name="ground-rules-example.jar"/>
+                </fileset>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run-server-process" depends="jar-common,jar-isolation,jar-rmi">
+        <java dir="." classname="org.apache.manifoldcf.examples.ServerProcess" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                    <include name="ground-rules-example-isolation.jar"/>
+                    <include name="ground-rules-example-rmi.jar"/>
+                </fileset>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run-client-process" depends="jar-common,jar-rmi,jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.ClientProcess" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                    <include name="ground-rules-example-rmi.jar"/>
+                    <include name="ground-rules-example.jar"/>
+                </fileset>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run-classloader-example" depends="jar-common,jar-isolation,jar">
+        <mkdir dir="build/connectorarea"/>
+        <copy todir="build/connectorarea">
+            <fileset dir="build/jar">
+                <include name="ground-rules-example-isolation.jar"/>
+            </fileset>
+        </copy>
+        <java dir="." classname="org.apache.manifoldcf.examples.ClassLoaderExample" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example-common.jar"/>
+                    <include name="ground-rules-example.jar"/>
+                </fileset>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+    
+    <target name="run-trust-store-example" depends="jar">
+        <java dir="." classname="org.apache.manifoldcf.examples.TrustStoreExample" fork="true" failonerror="true" maxmemory="128m">
+            <classpath>
+                <fileset dir="build/jar">
+                    <include name="ground-rules-example.jar"/>
+                </fileset>
+                <fileset dir="lib">
+                    <include name="*.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="org.apache.manifoldcf.configfile" file="properties.xml" />
+        </java>
+    </target>
+
+    <target name="all" depends="jar-common,jar-isolation,jar-rmi,jar"/>
+    
+</project>
