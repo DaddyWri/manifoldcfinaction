@@ -18,12 +18,18 @@
 */
 package org.apache.manifoldcf.examples;
 
-import org.apache.commons.httpclient.*;
-import org.apache.commons.httpclient.methods.*;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.client.HttpClient;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.HttpResponse;
 
 import java.io.*;
 import java.util.*;
 import java.net.*;
+import java.nio.charset.Charset;
 
 /** This connection class provides everything needed to communicate with the
 * ManifoldCF Authority Service.
@@ -33,6 +39,8 @@ public class ManifoldCFAuthorityServiceConnect
   /** The base URL, e.g. http://localhost:8345/mcf-authority-service.
   */
   protected String baseURL;
+
+  protected final static Charset UTF_8 = Charset.forName("UTF-8");
 
   /** Constructor.
   *@param baseURL is the base URL of the connection.
@@ -46,26 +54,28 @@ public class ManifoldCFAuthorityServiceConnect
   *@param userName is the user name, of the form name@domain.
   *@return the authority response, as a list of response components.
   */
-  public List<ResponseComponent> performAuthorityRequest(String userName)
+  public List<ResponseComponent> performAuthorityRequest(String authorizationDomain,
+    String userName)
     throws IOException
   {
-    HttpClient client = new HttpClient();
-    GetMethod method = new GetMethod(formURL(userName));
+    HttpClient client = HttpClients.createDefault();
+    HttpGet method = new HttpGet(formURL(authorizationDomain,userName));
     try
     {
-      int response = client.executeMethod(method);
-      // We presume that the data is utf-8, since that's what the authority service
-      // uses throughout.
+      HttpResponse httpResponse = client.execute(method);
+      int response = httpResponse.getStatusLine().getStatusCode();
+      // For convenience, we presume that the data is utf-8, since that's
+      // what the authority service uses throughout.
       if (response != HttpStatus.SC_OK)
         throw new IOException("Authority Service http GET error; expected "+
           HttpStatus.SC_OK+", "+
-          " saw "+Integer.toString(response)+": "+method.getResponseBodyAsString());
+          " saw "+Integer.toString(response));
       // Now, create an array of response components
       List<ResponseComponent> rval = new ArrayList<ResponseComponent>();
-      InputStream is = method.getResponseBodyAsStream();
+      InputStream is = httpResponse.getEntity().getContent();
       try
       {
-        BufferedReader br = new BufferedReader(new InputStreamReader(is,"utf-8"));
+        BufferedReader br = new BufferedReader(new InputStreamReader(is,UTF_8));
         while (true)
         {
           String line = br.readLine();
@@ -82,19 +92,23 @@ public class ManifoldCFAuthorityServiceConnect
     }
     finally
     {
-      method.releaseConnection();
+      method.abort();
     }
   }
 
   /** Form a full URL given the current baseURL and the user name.
+  *@param authorizationDomain is the authorization domain for the user.
   *@param userName is the user name, of the form name@domain.
   *@return the full URL.
   */
-  protected String formURL(String userName)
+  protected String formURL(String authorizationDomain, String userName)
     throws IOException
   {
     // The replace is necessary because Jetty does not recognize the '+' as being equivalent to a ' '.
-    return baseURL + "/UserACLs?username="+URLEncoder.encode(userName,"utf-8").replace("+","%20");
+    return baseURL + "/UserACLs?domain="+
+      URLEncoder.encode(authorizationDomain,"utf-8").replace("+","%20")+
+      "&username="+
+      URLEncoder.encode(userName,"utf-8").replace("+","%20");
   }
   
 }
