@@ -43,7 +43,9 @@ public class ManifoldCFSecurityFilter extends SearchComponent
 {
   /** The component name */
   static final public String COMPONENT_NAME = "ManifoldCFSecurityFilter";
-  /** The parameter that is supposed to contain the authenticated user name, possibly including the domain */
+  /** The parameter that is supposed to contain the authorization domain; if not specified, "" is used */
+  static final public String AUTHORIZATION_DOMAIN_NAME = "AuthorizationDomainName";
+  /** The parameter that is supposed to contain the authenticated user name, possibly including the AD domain */
   static final public String AUTHENTICATED_USER_NAME = "AuthenticatedUserName";
   /** This parameter is an array of strings, which contain the tokens to use if there is no authenticated user name.  It's meant to work with mod_authz_annotate,
   * running under Apache */
@@ -59,6 +61,8 @@ public class ManifoldCFSecurityFilter extends SearchComponent
   
   private String fieldAllowDocument = null;
   private String fieldDenyDocument = null;
+  private String fieldAllowParent = null;
+  private String fieldDenyParent = null;
   private String fieldAllowShare = null;
   private String fieldDenyShare = null;
   
@@ -87,6 +91,8 @@ public class ManifoldCFSecurityFilter extends SearchComponent
       denyAttributePrefix = "deny_token_";
     fieldAllowDocument = allowAttributePrefix+"document";
     fieldDenyDocument = denyAttributePrefix+"document";
+    fieldAllowParent = allowAttributePrefix+"parent";
+    fieldDenyParent = denyAttributePrefix+"parent";
     fieldAllowShare = allowAttributePrefix+"share";
     fieldDenyShare = denyAttributePrefix+"share";
   }
@@ -117,6 +123,10 @@ public class ManifoldCFSecurityFilter extends SearchComponent
       }
     }
 
+    // Get the authorization domain from the parameters (if any)
+    String authorizationDomain = params.get(AUTHORIZATION_DOMAIN_NAME);
+    if (authorizationDomain == null)
+      authorizationDomain = "";
     // Get the authenticated user name from the parameters
     String authenticatedUserName = params.get(AUTHENTICATED_USER_NAME);
 
@@ -133,7 +143,7 @@ public class ManifoldCFSecurityFilter extends SearchComponent
     }
     
     // Talk to the authority service and get the access tokens
-    List<String> userAccessTokens = getAccessTokens(authenticatedUserName);
+    List<String> userAccessTokens = getAccessTokens(authorizationDomain,authenticatedUserName);
 
     // Build a new boolean filter, which we'll add to the query at the end
     BooleanFilter bf = new BooleanFilter();
@@ -143,10 +153,13 @@ public class ManifoldCFSecurityFilter extends SearchComponent
       // Only open documents can be included.
       // That query is:
       // (fieldAllowShare is empty AND fieldDenyShare is empty AND fieldAllowDocument is empty AND fieldDenyDocument is empty)
-      // We're trying to map to:  -(fieldAllowShare:*) , which should be pretty efficient in Solr because it is negated.  If this turns out not to be so, then we should
-      // have the SolrConnector inject a special token into these fields when they otherwise would be empty, and we can trivially match on that token.
+      // We're trying to map to:  -(fieldAllowShare:*), which is not the best way to do this kind of thing in Lucene.
+      // Filter caching makes it tolerable, but a better approach is to use a default value as a dedicated term to match.
+      // That is what the MCF Solr plugin does.
       bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowShare,"*")),BooleanClause.Occur.MUST_NOT));
       bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyShare,"*")),BooleanClause.Occur.MUST_NOT));
+      bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowParent,"*")),BooleanClause.Occur.MUST_NOT));
+      bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyParent,"*")),BooleanClause.Occur.MUST_NOT));
       bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowDocument,"*")),BooleanClause.Occur.MUST_NOT));
       bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyDocument,"*")),BooleanClause.Occur.MUST_NOT));
     }
@@ -154,6 +167,7 @@ public class ManifoldCFSecurityFilter extends SearchComponent
     {
       // Extend the query appropriately for each user access token.
       bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowShare,fieldDenyShare,userAccessTokens),BooleanClause.Occur.MUST));
+      bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowParent,fieldDenyParent,userAccessTokens),BooleanClause.Occur.MUST));
       bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowDocument,fieldDenyDocument,userAccessTokens),BooleanClause.Occur.MUST));
     }
 
@@ -241,13 +255,15 @@ public class ManifoldCFSecurityFilter extends SearchComponent
   // Protected methods
   
   /** Get access tokens given a username.
+  *@param authorizationDomain is the authorization domain.
   *@param authenticatedUserName is the user name, of the form name@domain
   *@return the access tokens for that user, appropriate for all non-exception error conditions.
   */
-  protected List<String> getAccessTokens(String authenticatedUserName)
+  protected List<String> getAccessTokens(String authorizationDomain, String authenticatedUserName)
     throws IOException
   {
-    List<ResponseComponent> responses = connection.performAuthorityRequest(authenticatedUserName);
+    List<ResponseComponent> responses = connection.performAuthorityRequest(authorizationDomain,
+      authenticatedUserName);
     // Construct a response by filtering out everything but tokens.
     int i = 0;
     List<String> rval = new ArrayList<String>();
