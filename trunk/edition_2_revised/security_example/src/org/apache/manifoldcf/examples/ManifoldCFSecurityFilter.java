@@ -47,6 +47,9 @@ public class ManifoldCFSecurityFilter extends SearchComponent
   static final public String AUTHORIZATION_DOMAIN_NAME = "AuthorizationDomainName";
   /** The parameter that is supposed to contain the authenticated user name, possibly including the AD domain */
   static final public String AUTHENTICATED_USER_NAME = "AuthenticatedUserName";
+  /** The default value for empty authority fields, so we don't need to do wildcard queries */
+  static final public String EMPTY_FIELD_VALUE = "__no_security__";
+  
   /** This parameter is an array of strings, which contain the tokens to use if there is no authenticated user name.  It's meant to work with mod_authz_annotate,
   * running under Apache */
   static final public String USER_TOKENS = "UserTokens";
@@ -145,30 +148,43 @@ public class ManifoldCFSecurityFilter extends SearchComponent
     // Talk to the authority service and get the access tokens
     List<String> userAccessTokens = getAccessTokens(authorizationDomain,authenticatedUserName);
 
-    // Build a new boolean filter, which we'll add to the query at the end
-    BooleanFilter bf = new BooleanFilter();
+    // Build a new boolean query, which we'll add to the query at the end
+    BooleanQuery bq = new BooleanQuery();
     
+    
+    Query allowShareOpen = new TermQuery(new Term(fieldAllowShare,EMPTY_FIELD_VALUE));
+    Query denyShareOpen = new TermQuery(new Term(fieldDenyShare,EMPTY_FIELD_VALUE));
+      
+    Query allowParentOpen = new TermQuery(new Term(fieldAllowParent,EMPTY_FIELD_VALUE));
+    Query denyParentOpen = new TermQuery(new Term(fieldDenyParent,EMPTY_FIELD_VALUE));
+
+    Query allowDocumentOpen = new TermQuery(new Term(fieldAllowDocument,EMPTY_FIELD_VALUE));
+    Query denyDocumentOpen = new TermQuery(new Term(fieldDenyDocument,EMPTY_FIELD_VALUE));
+
     if (userAccessTokens.size() == 0)
     {
       // Only open documents can be included.
       // That query is:
       // (fieldAllowShare is empty AND fieldDenyShare is empty AND fieldAllowDocument is empty AND fieldDenyDocument is empty)
       // We're trying to map to:  -(fieldAllowShare:*), which is not the best way to do this kind of thing in Lucene.
-      // Filter caching makes it tolerable, but a better approach is to use a default value as a dedicated term to match.
-      // That is what the MCF Solr plugin does.
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowShare,"*")),BooleanClause.Occur.MUST_NOT));
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyShare,"*")),BooleanClause.Occur.MUST_NOT));
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowParent,"*")),BooleanClause.Occur.MUST_NOT));
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyParent,"*")),BooleanClause.Occur.MUST_NOT));
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldAllowDocument,"*")),BooleanClause.Occur.MUST_NOT));
-      bf.add(new FilterClause(new WildcardFilter(new Term(fieldDenyDocument,"*")),BooleanClause.Occur.MUST_NOT));
+      // Filter caching makes it tolerable, but a much better approach is to use a default value as a dedicated term to match.
+      // That is what we do below.
+      bq.add(allowShareOpen,BooleanClause.Occur.MUST);
+      bq.add(denyShareOpen,BooleanClause.Occur.MUST);
+      bq.add(allowParentOpen,BooleanClause.Occur.MUST);
+      bq.add(denyParentOpen,BooleanClause.Occur.MUST);
+      bq.add(allowDocumentOpen,BooleanClause.Occur.MUST);
+      bq.add(denyDocumentOpen,BooleanClause.Occur.MUST);
     }
     else
     {
       // Extend the query appropriately for each user access token.
-      bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowShare,fieldDenyShare,userAccessTokens),BooleanClause.Occur.MUST));
-      bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowParent,fieldDenyParent,userAccessTokens),BooleanClause.Occur.MUST));
-      bf.add(new FilterClause(calculateCompleteSubfilter(fieldAllowDocument,fieldDenyDocument,userAccessTokens),BooleanClause.Occur.MUST));
+      bq.add(calculateCompleteSubquery(fieldAllowShare,fieldDenyShare,allowShareOpen,denyShareOpen,userAccessTokens),
+        BooleanClause.Occur.MUST);
+      bq.add(calculateCompleteSubquery(fieldAllowParent,fieldDenyParent,allowParentOpen,denyParentOpen,userAccessTokens),
+        BooleanClause.Occur.MUST);
+      bq.add(calculateCompleteSubquery(fieldAllowDocument,fieldDenyDocument,allowDocumentOpen,denyDocumentOpen,userAccessTokens),
+        BooleanClause.Occur.MUST);
     }
 
     // Concatenate with the user's original query.
@@ -178,7 +194,7 @@ public class ManifoldCFSecurityFilter extends SearchComponent
       list = new ArrayList<Query>();
       rb.setFilters(list);
     }
-    list.add(new ConstantScoreQuery(bf));
+    list.add(new ConstantScoreQuery(bq));
   }
 
   /** All search components have a process() method.
@@ -197,32 +213,36 @@ public class ManifoldCFSecurityFilter extends SearchComponent
   *@param allowField is the field name of the allow field.
   *@param denyField is the field name of the deny field.
   *@param userAccessTokens is the list of access tokens associated with the specified user.
-  *@return the calculated filter.
+  *@return the calculated query.
   */
-  protected Filter calculateCompleteSubfilter(String allowField, String denyField, List<String> userAccessTokens)
+  /** Calculate a complete subclause, representing something like:
+  * ((fieldAllowShare is empty AND fieldDenyShare is empty) OR fieldAllowShare HAS token1 OR fieldAllowShare HAS token2 ...)
+  *     AND fieldDenyShare DOESN'T_HAVE token1 AND fieldDenyShare DOESN'T_HAVE token2 ...
+  *@param allowField is the field name of the allow field.
+  *@param denyField is the field name of the deny field.
+  *@param allowOpen is the query to use if there are no allow access tokens.
+  *@param denyOpen is the query to use if there are no deny access tokens.
+  *@param userAccessTokens is the list of access tokens associated with the specified user.
+  *@return the calculated query.
+  */
+  protected Query calculateCompleteSubquery(String allowField, String denyField, Query allowOpen, Query denyOpen,
+    List<String> userAccessTokens)
   {
-    BooleanFilter bf = new BooleanFilter();
-    
-    // Add a clause for each token.  This will be added directly to the main filter (as a deny test), as well as to an OR's subclause (as an allow test).
-    BooleanFilter orFilter = new BooleanFilter();
+    BooleanQuery bq = new BooleanQuery();
+    // No query limits!!
+    bq.setMaxClauseCount(1000000);
+      
     // Add the empty-acl case
-    BooleanFilter subUnprotectedClause = new BooleanFilter();
-    subUnprotectedClause.add(new FilterClause(new WildcardFilter(new Term(allowField,"*")),BooleanClause.Occur.MUST_NOT));
-    subUnprotectedClause.add(new FilterClause(new WildcardFilter(new Term(denyField,"*")),BooleanClause.Occur.MUST_NOT));
-    orFilter.add(new FilterClause(subUnprotectedClause,BooleanClause.Occur.SHOULD));
-    int i = 0;
-    while (i < userAccessTokens.size())
+    BooleanQuery subUnprotectedClause = new BooleanQuery();
+    subUnprotectedClause.add(allowOpen,BooleanClause.Occur.MUST);
+    subUnprotectedClause.add(denyOpen,BooleanClause.Occur.MUST);
+    bq.add(subUnprotectedClause,BooleanClause.Occur.SHOULD);
+    for (String accessToken : userAccessTokens)
     {
-      String accessToken = userAccessTokens.get(i++);
-      TermsFilter tf = new TermsFilter();
-      tf.addTerm(new Term(allowField,accessToken));
-      orFilter.add(new FilterClause(tf,BooleanClause.Occur.SHOULD));
-      tf = new TermsFilter();
-      tf.addTerm(new Term(denyField,accessToken));
-      bf.add(new FilterClause(tf,BooleanClause.Occur.MUST_NOT));
+      bq.add(new TermQuery(new Term(allowField,accessToken)),BooleanClause.Occur.SHOULD);
+      bq.add(new TermQuery(new Term(denyField,accessToken)),BooleanClause.Occur.MUST_NOT);
     }
-    bf.add(new FilterClause(orFilter,BooleanClause.Occur.MUST));
-    return bf;
+    return bq;
   }
   
   //---------------------------------------------------------------------------------
