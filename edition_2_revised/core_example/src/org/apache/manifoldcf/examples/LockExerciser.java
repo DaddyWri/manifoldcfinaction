@@ -44,7 +44,7 @@ public class LockExerciser
     try
     {
       // All processes must have initialization
-      ManifoldCF.initializeEnvironment();
+      ManifoldCF.initializeEnvironment(ThreadContextFactory.make());
       Logging.misc.debug("System successfully initialized");
       
       // Create the shared resource we're going to protect

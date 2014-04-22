@@ -44,7 +44,7 @@ public class CacheExerciser
     try
     {
       // All processes must have initialization
-      ManifoldCF.initializeEnvironment();
+      ManifoldCF.initializeEnvironment(ThreadContextFactory.make());
       Logging.misc.debug("System successfully initialized");
       
       // Create the underlying resource whose value we are going to cache
