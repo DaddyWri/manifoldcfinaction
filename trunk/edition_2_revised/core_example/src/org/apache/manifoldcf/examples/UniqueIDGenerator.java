@@ -38,7 +38,7 @@ public class UniqueIDGenerator
     try
     {
       // All processes must have initialization
-      ManifoldCF.initializeEnvironment();
+      ManifoldCF.initializeEnvironment(ThreadContextFactory.make());
       Logging.misc.debug("System successfully initialized");
       
       // Create the worker threads

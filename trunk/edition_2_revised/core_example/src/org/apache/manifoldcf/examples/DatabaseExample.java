@@ -167,12 +167,13 @@ public class DatabaseExample extends org.apache.manifoldcf.core.database.BaseTab
   {
     try
     {
-      // All processes must have initialization
-      ManifoldCF.initializeEnvironment();
-      Logging.misc.debug("System successfully initialized");
-      
       // Create a thread context
       IThreadContext threadContext = ThreadContextFactory.make();
+      
+      // All processes must have initialization
+      ManifoldCF.initializeEnvironment(threadContext);
+
+      Logging.misc.debug("System successfully initialized");
       
       // Create a table manager instance
       DatabaseExample tableManager = new DatabaseExample(threadContext);
