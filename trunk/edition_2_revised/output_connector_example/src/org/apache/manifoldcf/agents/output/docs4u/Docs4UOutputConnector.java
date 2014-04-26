@@ -564,26 +564,22 @@ public class Docs4UOutputConnector extends BaseOutputConnector
           // First, fill in the security info, since that might well cause us to reject the document outright.
           // We can only accept the document if the security information is compatible with the Docs4U
           // model, and if the mapped user or group exists in the target repository.
-          
-          if (document.countDirectoryACLs() > 0)
+          Iterator<String> aclTypes = document.securityTypesIterator();
+          while (aclTypes.hasNext())
           {
-            resultCode = "REJECTED";
-            resultReason = "Directory ACLs present";
-            return DOCUMENTSTATUS_REJECTED;
+            String aclType = aclTypes.next();
+            if (!aclType.equals(RepositoryDocument.SECURITY_TYPE_DOCUMENT))
+            {
+              resultCode = "REJECTED";
+              resultReason = "Unknown ACL types present";
+              return DOCUMENTSTATUS_REJECTED;
+            }
           }
           
-          String[] shareAcl = document.getShareACL();
-          String[] shareDenyAcl = document.getShareDenyACL();
-          if ((shareAcl != null && shareAcl.length > 0) ||
-            (shareDenyAcl != null && shareDenyAcl.length > 0))
-          {
-            resultCode = "REJECTED";
-            resultReason = "Share ACLs present";
-            return DOCUMENTSTATUS_REJECTED;
-          }
-          
-          String[] acl = performUserGroupMapping(document.getACL(),securityMap,startTime);
-          String[] denyAcl = performUserGroupMapping(document.getDenyACL(),securityMap,startTime);
+          String[] acl = performUserGroupMapping(document.getSecurityACL(RepositoryDocument.SECURITY_TYPE_DOCUMENT),
+            securityMap,startTime);
+          String[] denyAcl = performUserGroupMapping(document.getSecurityDenyACL(RepositoryDocument.SECURITY_TYPE_DOCUMENT),
+            securityMap,startTime);
           if (acl == null || denyAcl == null)
           {
             resultCode = "REJECTED";

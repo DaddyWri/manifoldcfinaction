@@ -91,7 +91,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
   // The global deny token
   
   /** Global deny token for Docs4U */
-  public final static String GLOBAL_DENY_TOKEN = "DEAD_AUTHORITY";
+  public final static String globalDenyToken = GLOBAL_DENY_TOKEN;
   
   // Local variables.
   
@@ -581,8 +581,7 @@ public class Docs4UConnector extends BaseRepositoryConnector
     // Capture exceptions from Docs4U
     try
     {
-      int i = 0;
-      while (i < documentIdentifiers.length)
+      for (int i = 0; i < documentIdentifiers.length; i++)
       {
         // ScanOnly indicates that we should only extract, never index.
         if (!scanOnly[i])
@@ -626,10 +625,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
                   // Unpack metadata info
                   List<String> metadataNames = new ArrayList<String>();
                   unpackList(metadataNames,version,0,'+');
-                  int j = 0;
-                  while (j < metadataNames.size())
+                  for (String metadataName : metadataNames)
                   {
-                    String metadataName = metadataNames.get(j++);
                     // Get the value from the doc info object
                     String[] metadataValues = docData.getMetadata(metadataName);
                     if (metadataValues != null)
@@ -640,17 +637,18 @@ public class Docs4UConnector extends BaseRepositoryConnector
                   }
                   
                   // Handle the security information
-                  rd.setACL(docData.getAllowed());
+                  rd.setSecurityACL(RepositoryDocument.SECURITY_TYPE_DOCUMENT,
+                    docData.getAllowed());
                   // For disallowed, we must add in a global deny token
                   String[] disallowed = docData.getDisallowed();
                   List<String> list = new ArrayList<String>();
-                  list.add(GLOBAL_DENY_TOKEN);
-                  j = 0;
-                  while (j < disallowed.length)
+                  list.add(globalDenyToken);
+                  for (String disallowedToken : disallowed)
                   {
-                    list.add(disallowed[j++]);
+                    list.add(disallowedToken);
                   }
-                  rd.setDenyACL(list.toArray(disallowed));
+                  rd.setSecurityDenyACL(RepositoryDocument.SECURITY_TYPE_DOCUMENT,
+                    list.toArray(disallowed));
                   
                   // Index the document!
                   activities.ingestDocument(docID,version,url,rd);
@@ -676,7 +674,6 @@ public class Docs4UConnector extends BaseRepositoryConnector
               activities.recordActivity(new Long(startTime),ACTIVITY_FETCH,dataSize,docID,status,description,null);
           }
         }
-        i++;
       }
     }
     catch (InterruptedIOException e)

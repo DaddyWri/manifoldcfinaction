@@ -40,7 +40,7 @@ public class ClassLoaderExample
     try
     {
       // Initialize the system
-      ManifoldCF.initializeEnvironment();
+      ManifoldCF.initializeEnvironment(ThreadContextFactory.make());
       
       // Get the relative path for the "connector libraries" from a configuration parameter
       File connectorLibraryFolder = ManifoldCF.getFileProperty("org.apache.manifoldcf.examples.connectorjarpath");

@@ -49,7 +49,7 @@ public class TrustStoreExample
   {
     try
     {
-      ManifoldCF.initializeEnvironment();
+      ManifoldCF.initializeEnvironment(ThreadContextFactory.make());
       // Create a local trust store with nothing in it, and no password.
       System.out.println("Creating empty trust store...");
       IKeystoreManager trustStore = KeystoreManagerFactory.make("");
