@@ -6,7 +6,7 @@
     
     <target name="compile-common">
         <mkdir dir="build/common-classes"/>
-        <javac srcdir="common-src" destdir="build/common-classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+        <javac srcdir="common-src" destdir="build/common-classes" target="1.6" source="1.6" debug="true" deprecation="true" debuglevel="lines,vars,source">
         </javac>
     </target>
 
@@ -17,7 +17,7 @@
 
     <target name="compile-isolation" depends="jar-common">
         <mkdir dir="build/isolation-classes"/>
-        <javac srcdir="isolation-src" destdir="build/isolation-classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+        <javac srcdir="isolation-src" destdir="build/isolation-classes" target="1.6" source="1.6" debug="true" deprecation="true" debuglevel="lines,vars,source">
             <classpath>
                 <fileset dir="build/jar">
                     <include name="ground-rules-example-common.jar"/>
@@ -57,7 +57,7 @@
 
     <target name="compile" depends="jar-common">
         <mkdir dir="build/classes"/>
-        <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+        <javac srcdir="src" destdir="build/classes" target="1.6" source="1.6" debug="true" deprecation="true" debuglevel="lines,vars,source">
             <classpath>
                 <fileset dir="lib">
                     <include name="*.jar"/>
