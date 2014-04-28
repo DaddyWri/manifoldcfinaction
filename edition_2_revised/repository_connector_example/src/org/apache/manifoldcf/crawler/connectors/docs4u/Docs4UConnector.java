@@ -380,10 +380,8 @@ public class Docs4UConnector extends BaseRepositoryConnector
         // Get the metadata names
         String[] metadataNames = getMetadataNames();
         // Code these up in the output, in a form that yields decent JSON
-        int i = 0;
-        while (i < metadataNames.length)
+        for (String metadataName : metadataNames)
         {
-          String metadataName = metadataNames[i++];
           // Construct an appropriate node
           ConfigurationNode node = new ConfigurationNode("metadata");
           ConfigurationNode child = new ConfigurationNode("name");
