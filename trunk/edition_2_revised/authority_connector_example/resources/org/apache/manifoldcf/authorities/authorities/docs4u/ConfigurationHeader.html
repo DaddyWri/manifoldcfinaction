@@ -19,12 +19,6 @@
 <!--
 function checkConfig()
 {
-  if (editconnection.usernameregexp.value != "" && !isRegularExpression(editconnection.usernameregexp.value))
-  {
-    alert("User name regular expression must be a valid regular expression");
-    editconnection.usernameregexp.focus();
-    return false;
-  }
   return true;
 }
 
@@ -35,13 +29,6 @@ function checkConfigForSave()
     alert("Enter a repository root");
     SelectTab("Repository");
     editconnection.repositoryroot.focus();
-    return false;
-  }
-  if (editconnection.usernameregexp.value == "")
-  {
-    alert("User name regular expression cannot be null");
-    SelectTab("User Mapping");
-    editconnection.usernameregexp.focus();
     return false;
   }
   return true;
