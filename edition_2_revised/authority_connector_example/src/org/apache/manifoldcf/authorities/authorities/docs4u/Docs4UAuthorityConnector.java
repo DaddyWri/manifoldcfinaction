@@ -132,7 +132,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     throws ManifoldCFException, IOException
   {
     tabsArray.add("Repository");
-    tabsArray.add("User Mapping");
     Messages.outputResourceWithVelocity(out,locale,"ConfigurationHeader.html",null);
   }
 
