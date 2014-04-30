@@ -57,20 +57,18 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   
   /** Repository root parameter */
   protected final static String PARAMETER_REPOSITORY_ROOT = "rootdirectory";
-  /** User name mapping parameter */
-  protected final static String PARAMETER_USERMAPPING = "usermapping";
 
   /** This is the active directory global deny token.  This should be ingested with all documents. */
-  public static final String GLOBAL_DENY_TOKEN = "DEAD_AUTHORITY";
+  public static final String globalDenyToken = GLOBAL_DENY_TOKEN;
   
   // The prebuilt authorization responses for error conditions
   
   /** Unreachable Docs4U */
   private static final AuthorizationResponse unreachableResponse = new AuthorizationResponse(
-    new String[]{GLOBAL_DENY_TOKEN},AuthorizationResponse.RESPONSE_UNREACHABLE);
+    new String[]{globalDenyToken},AuthorizationResponse.RESPONSE_UNREACHABLE);
   /** User not found */
   private static final AuthorizationResponse userNotFoundResponse = new AuthorizationResponse(
-    new String[]{GLOBAL_DENY_TOKEN},AuthorizationResponse.RESPONSE_USERNOTFOUND);
+    new String[]{globalDenyToken},AuthorizationResponse.RESPONSE_USERNOTFOUND);
 
   // Local constants
   
@@ -86,8 +84,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   
   /** The root directory */
   protected String rootDirectory = null;
-  /** Match map for username mapping */
-  protected MatchMap matchMap = null;
 
   /** The Docs4U API session */
   protected Docs4UAPI session = null;
@@ -163,12 +159,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     fillInRepositoryTab(velocityContext,parameters);
     Messages.outputResourceWithVelocity(out,locale,"Configuration_Repository.html",velocityContext);
     
-    // Output the User Mapping tab
-    velocityContext.clear();
-    velocityContext.put("TabName",tabName);
-    fillInUserMappingTab(velocityContext,parameters);
-    Messages.outputResourceWithVelocity(out,locale,"Configuration_User_Mapping.html",velocityContext);
-
   }
   
   /** Fill in velocity parameters for Repository tab.
@@ -182,26 +172,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     velocityContext.put("repositoryroot",repositoryRoot);
   }
   
-  /** Fill in velocity parameters for User Mapping tab.
-  */
-  protected static void fillInUserMappingTab(Map<String,Object> velocityContext,
-    ConfigParams parameters)
-  {
-    String userMappingString = parameters.getParameter(PARAMETER_USERMAPPING);
-    MatchMap localMap;
-    if (userMappingString != null)
-      localMap = new MatchMap(userMappingString);
-    else
-    {
-      localMap = new MatchMap();
-      localMap.appendMatchPair("(.*)","$(1)");
-    }
-    String usernameRegexp = localMap.getMatchString(0);
-    String userTranslation = localMap.getReplaceString(0);
-    velocityContext.put("usernameregexp",usernameRegexp);
-    velocityContext.put("usertranslation",userTranslation);
-  }
-  
+
   /** Process a configuration post.
   * This method is called at the start of the connector's configuration page, whenever there is a possibility
   * that form data for a connection has been posted.  Its purpose is to gather form information and modify
@@ -222,14 +193,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     String repositoryRoot = variableContext.getParameter("repositoryroot");
     if (repositoryRoot != null)
       parameters.setParameter(PARAMETER_REPOSITORY_ROOT,repositoryRoot);
-    String usernameRegexp = variableContext.getParameter("usernameregexp");
-    String userTranslation = variableContext.getParameter("usertranslation");
-    if (usernameRegexp != null && userTranslation != null)
-    {
-      MatchMap localMap = new MatchMap();
-      localMap.appendMatchPair(usernameRegexp,userTranslation);
-      parameters.setParameter(PARAMETER_USERMAPPING,localMap.toString());
-    }
 
     return null;
   }
@@ -251,7 +214,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   {
     Map<String,Object> velocityContext = new HashMap<String,Object>();
     fillInRepositoryTab(velocityContext,parameters);
-    fillInUserMappingTab(velocityContext,parameters);
     Messages.outputResourceWithVelocity(out,locale,"ConfigurationView.html",velocityContext);
   }
   
@@ -295,8 +257,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
   {
     super.connect(configParameters);
     rootDirectory = configParameters.getParameter(PARAMETER_REPOSITORY_ROOT);
-    String userNameMapping = configParameters.getParameter(PARAMETER_USERMAPPING);
-    matchMap = new MatchMap(userNameMapping);
   }
 
   /** Close the connection.  Call this before discarding this instance of the
@@ -307,7 +267,6 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     throws ManifoldCFException
   {
     expireSession();
-    matchMap = null;
     rootDirectory = null;
     super.disconnect();
   }
@@ -361,7 +320,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     if (Logging.authorityConnectors.isDebugEnabled())
       Logging.authorityConnectors.debug("Docs4U: Received request for user '"+userName+"'");
     
-    ICacheDescription objectDescription = new AuthorizationResponseDescription(userName,rootDirectory,matchMap.toString());
+    ICacheDescription objectDescription = new AuthorizationResponseDescription(userName,rootDirectory);
     
     // Enter the cache
     ICacheHandle ch = cacheManager.enterCache(new ICacheDescription[]{objectDescription},null,null);
@@ -403,8 +362,8 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     if (Logging.authorityConnectors.isDebugEnabled())
       Logging.authorityConnectors.debug("Docs4U: Calculating response access tokens for user '"+userName+"'");
 
-    // Map the user to the final value
-    String d4uUser = matchMap.translate(userName);
+    // Map the user to the final value; no mapping here!  Expected to be done by a regexp mapper upstream...
+    String d4uUser = userName;
 
     if (Logging.authorityConnectors.isDebugEnabled())
       Logging.authorityConnectors.debug("Docs4U: Mapped user name is '"+d4uUser+"'");
@@ -467,19 +426,15 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     protected String userName;
     /** The repository path */
     protected String repositoryRoot;
-    /** The user mapping */
-    protected String userMapping;
     /** The expiration time */
     protected long expirationTime = -1;
     
     /** Constructor. */
-    public AuthorizationResponseDescription(String userName, String repositoryRoot,
-      String userMapping)
+    public AuthorizationResponseDescription(String userName, String repositoryRoot)
     {
       super("Docs4UAuthority",LRUsize);
       this.userName = userName;
       this.repositoryRoot = repositoryRoot;
-      this.userMapping = userMapping;
     }
 
     /** Return the invalidation keys for this object. */
@@ -491,8 +446,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
     /** Get the critical section name, used for synchronizing the creation of the object */
     public String getCriticalSectionName()
     {
-      return getClass().getName() + "-" + userName + "-" + repositoryRoot +
-        "-" + userMapping;
+      return getClass().getName() + "-" + userName + "-" + repositoryRoot;
     }
 
     /** Return the object expiration interval */
@@ -505,7 +459,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
 
     public int hashCode()
     {
-      return userName.hashCode() + repositoryRoot.hashCode() + userMapping.hashCode();
+      return userName.hashCode() + repositoryRoot.hashCode();
     }
     
     public boolean equals(Object o)
@@ -513,8 +467,7 @@ public class Docs4UAuthorityConnector extends BaseAuthorityConnector
       if (!(o instanceof AuthorizationResponseDescription))
         return false;
       AuthorizationResponseDescription ard = (AuthorizationResponseDescription)o;
-      return ard.userName.equals(userName) && ard.repositoryRoot.equals(repositoryRoot) &&
-        ard.userMapping.equals(userMapping);
+      return ard.userName.equals(userName) && ard.repositoryRoot.equals(repositoryRoot);
     }
     
   }
