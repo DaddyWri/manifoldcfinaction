@@ -1,0 +1,2 @@
+http://rss.cnn.com/rss/cnn_topstories.rss
+http://rss.cnn.com/rss/si_topstories.rss
