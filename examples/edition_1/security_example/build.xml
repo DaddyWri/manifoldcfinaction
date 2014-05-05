@@ -1,0 +1,25 @@
+<project default="all">
+
+    <target name="clean">
+        <delete dir="build"/>
+    </target>
+    
+    <target name="compile">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" target="1.5" source="1.5" debug="true" debuglevel="lines,vars,source">
+            <classpath>
+                <fileset dir="lib"> 
+                    <include name="*.jar"/> 
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/authority-example.jar" basedir="build/classes"/>
+    </target>
+
+    <target name="all" depends="jar"/>
+    
+</project>
